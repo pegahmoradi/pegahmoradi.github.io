@@ -52,11 +52,13 @@ tx3_income <- read_csv("tx3_income.csv")
 tx3_income$Title <- as.character(tx3_income$Title)
 #Then turn it back into an ordered factor
 tx3_income$Title <- factor(tx3_income$Title, levels=unique(tx3_income$Title))
+tiff('incomes.tiff', units="in", width=7, height=4, res=500)
 ggplot(tx3_income[2:11,], aes(x = Title, y = Relevant.Proportion, fill = Title)) + geom_col() + labs(title = "Incomes in TX-03", x = "Income Group", y = "Proportion") + theme(legend.position="none", axis.text.x =
-               element_text(size  = 7,
+               element_text(size  = 10,
                             angle = 45,
                             hjust = 1,
                             vjust = 1))
+dev.off()
 ```
 
 ## Insurance Coverage

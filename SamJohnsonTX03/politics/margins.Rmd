@@ -1,0 +1,22 @@
+---
+title: "Margins"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(gdata)
+library(readr)
+```
+
+
+```{r}
+margins <- read_csv("margins.csv")
+tiff('margins.tiff', units="in", width=7, height=4, res=500)
+ggplot(margins, aes(x = year, y = margin, color = type)) + geom_line() + scale_x_continuous(breaks = round(seq(1990, 2016, by = 2),1)) + labs(title = "Sam Johnson (TX-03) Margins of Victory", x = "Election Year", y = "Margin")+theme(legend.title=element_blank())
+dev.off()
+```
