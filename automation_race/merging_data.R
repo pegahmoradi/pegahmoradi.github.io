@@ -18,4 +18,4 @@ auto <- merge(auto, bls, by.x="soc_codes", by.y="soc_code")
 
 autorace <- auto[c("occupation.x", "prob_computerization", "tot_employed","women","black","asian","hisp_latino")]
 colnames(autorace)[1] <- "occupation"
-write.csv(autorace,file = "automation_race_merged")
+write.csv(autorace,file = "automation_race_merged.csv")
