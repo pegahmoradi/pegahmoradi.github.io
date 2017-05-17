@@ -1,0 +1,191 @@
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(gdata)
+library(readr)
+library(plyr)
+library(tidyr)
+library(mosaic)
+
+data<-read.csv("automation_race_merged_clean.csv")
+data <- data %>% na.omit()
+
+data <- data %>% mutate(white = 100 - black - asian)
+data <- data %>% mutate(men = 100 - women)
+
+
+
+data %>% glimpse()
+
+data_RE <- data %>%  gather(race_group, pct_race, 
+                            -occupation, -tot_employed, 
+                            -women, -prob_computerization, -men) 
+
+data_gend <- data %>%  gather(gender, pct_gend, 
+                              -occupation, -tot_employed, 
+                              -white, -black, -asian, -hisp_latino, -prob_computerization) 
+
+
+data_RE %>% glimpse()  
+
+
+# All race/ethnicity groups
+ggplot(data_RE, aes(y = prob_computerization, x = pct_race, color = race_group)) +
+  geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 100) +theme_bw() + 
+  labs(title = "All workers") +scale_color_discrete(name="Race/Ethnicity",
+                                                    labels=c("Asian", "Black", "Hispanic/Latino","White"))
+
+
+# Minority groups
+ggplot(filter(data_RE, race_group == "black" | race_group == "asian" | race_group == "hisp_latino"), aes(y = prob_computerization, x = pct_race, color = race_group)) +
+  geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 30) +theme_bw()+ 
+  labs(title = "Minority workers") +scale_color_discrete(name="Race/Ethnicity",
+                                                         labels=c("Asian", "Black", "Hispanic/Latino"))
+
+# White
+ggplot(filter(data_RE, race_group == "white"), aes(y = prob_computerization, x = pct_race, color = race_group)) +
+  geom_jitter(alpha = .3) + geom_smooth(size = 1.3) + xlim(50, 100) +theme_bw()+ 
+  labs(title = "White workers")
+
+# Women vs. Men
+
+# ******** WOMEN*********
+ggplot(data_RE, aes(y = prob_computerization,
+                    x = women)) +
+  geom_jitter(alpha = .2) + 
+  geom_smooth(method = lm) + 
+  xlim(0, 100) +
+  theme_bw()+ 
+  labs(title = "Female workers", x = "Percent women in occupation", y= "Probability of automation")
+
+# ****** MEN********
+ggplot(data_RE, aes(y = prob_computerization,
+                    x = men)) +
+  geom_jitter(alpha = .2) + 
+  geom_smooth(method = lm) + 
+  xlim(0, 100) +
+  theme_bw()+ 
+  labs(title = "Male workers", x = "Percent men in occupation", y= "Probability of automation")
+
+
+
+#######
+
+as.numeric.factor <- function(x) {as.numeric(levels(x))[x]}
+data <- data %>% mutate(white_num = round(tot_employed * white/100))
+data <- data %>% mutate(women_num = round(tot_employed * women/100))
+data <- data %>% mutate(black_num = round(tot_employed * black/100))
+data <- data %>% mutate(asian_num = round(tot_employed * asian/100))
+data <- data %>% mutate(hisp_latino_num = round(tot_employed * hisp_latino/100))
+data <- data %>% mutate(men_num = round(tot_employed * men/100))
+
+data_num <- data[c("occupation",
+                   "prob_computerization",
+                   "tot_employed",
+                   "men_num",
+                   "women_num",
+                   "asian_num",
+                   "black_num",
+                   "hisp_latino_num",
+                   "white_num")]
+colnames(data_num)[4] <- "men"
+colnames(data_num)[5] <- "women"
+colnames(data_num)[6] <- "asian"
+colnames(data_num)[7] <- "black"
+colnames(data_num)[8] <- "hisp_latino"
+colnames(data_num)[9] <- "white"
+
+# Race/Ethnicity counts
+data_race_counts <- data_num %>% gather(race_group, race_count,
+                                        -occupation, -tot_employed, 
+                                        -women, -prob_computerization, -men)
+data_race_counts <- data_race_counts %>% mutate(pr_comp= derivedFactor(
+  "0.90" = (prob_computerization < 1 & prob_computerization >= 0.9),
+  "0.80" = (prob_computerization < 0.9 & prob_computerization >= 0.8),
+  "0.70" = (prob_computerization < 0.8 & prob_computerization >= 0.7),
+  "0.60" = (prob_computerization < 0.7 & prob_computerization >= 0.6),
+  "0.50" = (prob_computerization < 0.6 & prob_computerization >= 0.5),
+  "0.40" = (prob_computerization < 0.5 & prob_computerization >= 0.4),
+  "0.30" = (prob_computerization < 0.4 & prob_computerization >= 0.3),
+  "0.20" = (prob_computerization < 0.3 & prob_computerization >= 0.2),
+  "0.10" = (prob_computerization < 0.2 & prob_computerization >= 0.1),
+  "0.00" = (prob_computerization < 0.1 & prob_computerization >= 0.0)
+))
+
+aghhh <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, data_race_counts))
+
+
+# RACE/ETHNICITY: COUNTS
+ggplot(aghhh, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization by race/ethnicity", x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
+                                                                                                                                                                                                                                                                                                                                             labels=c("Asian", "Black", "Hispanic/Latino","White"))
+
+# Gender counts
+data_gend_counts <- data_num %>% gather(gender, gend_count,
+                                        -occupation, -tot_employed, 
+                                        -white, -black, -asian, -hisp_latino,
+                                        -prob_computerization)
+
+data_gend_counts <- data_gend_counts %>% mutate(pr_comp= derivedFactor(
+  "0.90" = (prob_computerization < 1 & prob_computerization >= 0.9),
+  "0.80" = (prob_computerization < 0.9 & prob_computerization >= 0.8),
+  "0.70" = (prob_computerization < 0.8 & prob_computerization >= 0.7),
+  "0.60" = (prob_computerization < 0.7 & prob_computerization >= 0.6),
+  "0.50" = (prob_computerization < 0.6 & prob_computerization >= 0.5),
+  "0.40" = (prob_computerization < 0.5 & prob_computerization >= 0.4),
+  "0.30" = (prob_computerization < 0.4 & prob_computerization >= 0.3),
+  "0.20" = (prob_computerization < 0.3 & prob_computerization >= 0.2),
+  "0.10" = (prob_computerization < 0.2 & prob_computerization >= 0.1),
+  "0.00" = (prob_computerization < 0.1 & prob_computerization >= 0.0)
+))
+
+aghhh_gend <- as.data.frame(xtabs(gend_count ~ pr_comp+gender, data_gend_counts))
+
+# GENDER: COUNTS
+ggplot(aghhh_gend, aes(y = Freq, x = as.numeric.factor(pr_comp), color = gender)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization", x = "Probability of computerization", y= "Number of workers (Thousands)") + scale_color_discrete(name = "Gender", labels=c("Men","Women"))
+
+
+
+
+
+
+
+######
+
+
+data <- data %>% mutate(men_effect = (tot_employed * men/100 * prob_computerization))
+data <- data %>% mutate(women_effect = (tot_employed * women/100 * prob_computerization))
+data <- data %>% mutate(asian_effect = (tot_employed * asian/100 * prob_computerization))
+data <- data %>% mutate(black_effect = (tot_employed * black/100 * prob_computerization))
+data <- data %>% mutate(hisp_latino_effect = (tot_employed * hisp_latino/100 * prob_computerization))
+data <- data %>% mutate(white_effect = (tot_employed * white/100 * prob_computerization))
+
+effects <- data[c("men_effect", "women_effect", "asian_effect", "black_effect", "hisp_latino_effect", "white_effect")]
+
+sum(effects$men_effect)
+sum(effects$women_effect)
+sum(effects$asian_effect)
+sum(effects$black_effect)
+sum(effects$hisp_latino_effect)
+sum(effects$white_effect)
+race <- c("asian","black","hisp_latino","white")
+sum <- c(
+  sum(effects$asian_effect),
+  sum(effects$black_effect),
+  sum(effects$hisp_latino_effect),
+  sum(effects$white_effect)
+)
+effect_race <- data.frame(race,sum)
+
+# EFFECT - NOT ACCOUNTING FOR POPULATION
+ggplot(effect_race, aes(x = race, y = sum, fill = race)) +geom_col() + labs(title = "Effect of Computerization by Race/Ethnicity", x = "Race", y = "Aggregate automation effect value") + guides(fill=FALSE)
+
+# EFFECT, ACCOUNTING FOR POPULATION
+controlled <- c(
+  sum(effects$asian_effect)*0.061,
+  sum(effects$black_effect)*0.119,
+  sum(effects$hisp_latino_effect)*0.167,
+  sum(effects$white_effect)*0.653
+)
+
+effect_controlled <- data.frame(race, controlled)
+ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + labs(title = "Effect of Computerization by Race/Ethnicity", x = "Race", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE)
