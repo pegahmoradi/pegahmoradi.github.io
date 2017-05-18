@@ -6,28 +6,23 @@ library(readr)
 library(plyr)
 library(tidyr)
 library(mosaic)
+library(vcdExtra)
 
 data<-read.csv("automation_race_merged_clean.csv")
 data <- data %>% na.omit()
 
+# Add white and men
 data <- data %>% mutate(white = 100 - black - asian)
 data <- data %>% mutate(men = 100 - women)
 
-
-
-data %>% glimpse()
-
+# Race/ethnicity data for geom_smooth
 data_RE <- data %>%  gather(race_group, pct_race, 
                             -occupation, -tot_employed, 
                             -women, -prob_computerization, -men) 
-
+# Gender data for geom_smooth
 data_gend <- data %>%  gather(gender, pct_gend, 
                               -occupation, -tot_employed, 
                               -white, -black, -asian, -hisp_latino, -prob_computerization) 
-
-
-data_RE %>% glimpse()  
-
 
 # All race/ethnicity groups
 ggplot(data_RE, aes(y = prob_computerization, x = pct_race, color = race_group)) +
@@ -69,7 +64,7 @@ ggplot(data_RE, aes(y = prob_computerization,
 
 
 
-#######
+##################################################################################
 
 as.numeric.factor <- function(x) {as.numeric(levels(x))[x]}
 data <- data %>% mutate(white_num = round(tot_employed * white/100))
@@ -96,10 +91,10 @@ colnames(data_num)[8] <- "hisp_latino"
 colnames(data_num)[9] <- "white"
 
 # Race/Ethnicity counts
-data_race_counts <- data_num %>% gather(race_group, race_count,
+race_counts <- data_num %>% gather(race_group, race_count,
                                         -occupation, -tot_employed, 
                                         -women, -prob_computerization, -men)
-data_race_counts <- data_race_counts %>% mutate(pr_comp= derivedFactor(
+race_counts <- race_counts %>% mutate(pr_comp= derivedFactor(
   "0.90" = (prob_computerization < 1 & prob_computerization >= 0.9),
   "0.80" = (prob_computerization < 0.9 & prob_computerization >= 0.8),
   "0.70" = (prob_computerization < 0.8 & prob_computerization >= 0.7),
@@ -112,20 +107,20 @@ data_race_counts <- data_race_counts %>% mutate(pr_comp= derivedFactor(
   "0.00" = (prob_computerization < 0.1 & prob_computerization >= 0.0)
 ))
 
-aghhh <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, data_race_counts))
+race_freq <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, race_counts))
 
 
 # RACE/ETHNICITY: COUNTS
-ggplot(aghhh, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization by race/ethnicity", x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
+ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization by race/ethnicity", x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
                                                                                                                                                                                                                                                                                                                                              labels=c("Asian", "Black", "Hispanic/Latino","White"))
 
 # Gender counts
-data_gend_counts <- data_num %>% gather(gender, gend_count,
+gend_counts <- data_num %>% gather(gender, gend_count,
                                         -occupation, -tot_employed, 
                                         -white, -black, -asian, -hisp_latino,
                                         -prob_computerization)
 
-data_gend_counts <- data_gend_counts %>% mutate(pr_comp= derivedFactor(
+gend_counts <- gend_counts %>% mutate(pr_comp= derivedFactor(
   "0.90" = (prob_computerization < 1 & prob_computerization >= 0.9),
   "0.80" = (prob_computerization < 0.9 & prob_computerization >= 0.8),
   "0.70" = (prob_computerization < 0.8 & prob_computerization >= 0.7),
@@ -138,10 +133,11 @@ data_gend_counts <- data_gend_counts %>% mutate(pr_comp= derivedFactor(
   "0.00" = (prob_computerization < 0.1 & prob_computerization >= 0.0)
 ))
 
-aghhh_gend <- as.data.frame(xtabs(gend_count ~ pr_comp+gender, data_gend_counts))
+gend_freq <- as.data.frame(xtabs(gend_count ~ pr_comp+gender, gend_counts))
+
 
 # GENDER: COUNTS
-ggplot(aghhh_gend, aes(y = Freq, x = as.numeric.factor(pr_comp), color = gender)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization", x = "Probability of computerization", y= "Number of workers (Thousands)") + scale_color_discrete(name = "Gender", labels=c("Men","Women"))
+ggplot(gend_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = gender)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization", x = "Probability of computerization", y= "Number of workers (Thousands)") + scale_color_discrete(name = "Gender", labels=c("Men","Women"))
 
 
 
@@ -189,3 +185,11 @@ controlled <- c(
 
 effect_controlled <- data.frame(race, controlled)
 ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + labs(title = "Effect of Computerization by Race/Ethnicity", x = "Race", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE)
+
+
+# Proportions: Regression
+race_case <- expand.dft(race_counts, freq = "race_count")
+
+m_race_gend <- lm(prob_computerization ~ race_group, data = race_case)
+summary(m_race_gend)
+
