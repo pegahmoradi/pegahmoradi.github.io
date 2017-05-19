@@ -111,7 +111,7 @@ race_freq <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, race_counts))
 
 
 # RACE/ETHNICITY: COUNTS
-ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization by race/ethnicity", x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
+ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
                                                                                                                                                                                                                                                                                                                                              labels=c("Asian", "Black", "Hispanic/Latino","White"))
 
 # Gender counts
@@ -137,7 +137,7 @@ gend_freq <- as.data.frame(xtabs(gend_count ~ pr_comp+gender, gend_counts))
 
 
 # GENDER: COUNTS
-ggplot(gend_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = gender)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(title = "Number of workers at risk of occupational computerization", x = "Probability of computerization", y= "Number of workers (Thousands)") + scale_color_discrete(name = "Gender", labels=c("Men","Women"))
+ggplot(gend_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = gender)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs( x = "Probability of computerization", y= "Number of workers (Thousands)") + scale_color_discrete(name = "Gender", labels=c("Men","Women"))
 
 
 
@@ -163,17 +163,26 @@ sum(effects$asian_effect)
 sum(effects$black_effect)
 sum(effects$hisp_latino_effect)
 sum(effects$white_effect)
-race <- c("asian","black","hisp_latino","white")
+race <- c("asian","black","hispanic/latino","white")
 sum <- c(
   sum(effects$asian_effect),
   sum(effects$black_effect),
   sum(effects$hisp_latino_effect),
   sum(effects$white_effect)
 )
+
+gend <- c("men", "women")
+sum_gend <- c(
+  sum(effects$men_effect),
+  sum(effects$women_effect)
+)
+
 effect_race <- data.frame(race,sum)
+effect_gend <- data.frame(gend, sum_gend)
 
 # EFFECT - NOT ACCOUNTING FOR POPULATION
-ggplot(effect_race, aes(x = race, y = sum, fill = race)) +geom_col() + labs(title = "Effect of Computerization by Race/Ethnicity", x = "Race", y = "Aggregate automation effect value") + guides(fill=FALSE)
+ggplot(effect_race, aes(x = race, y = sum, fill = race)) +geom_col() + labs(x = "Race", y = "Aggregate automation effect value") + guides(fill=FALSE) + theme_bw()
+ggplot(effect_gend, aes(x = gend, y = sum_gend, fill = gend)) +geom_col() + labs(x = "Gender", y = "Aggregate automation effect value") + guides(fill=FALSE) + theme_bw()
 
 # EFFECT, ACCOUNTING FOR POPULATION
 controlled <- c(
@@ -182,14 +191,21 @@ controlled <- c(
   sum(effects$hisp_latino_effect)*0.167,
   sum(effects$white_effect)*0.653
 )
+controlled_gend <- c(
+  sum(effects$women_effect)*0.468,
+  sum(effects$men_effect)*0.532
+)
 
 effect_controlled <- data.frame(race, controlled)
-ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + labs(title = "Effect of Computerization by Race/Ethnicity", x = "Race", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE)
+effect_controlled_gend <- data.frame(gend, controlled_gend)
+
+ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + theme_bw() + labs(x = "Race", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE) 
+ggplot(effect_gend, aes(x = gend, y = controlled_gend, fill = gend)) +geom_col() + theme_bw() + labs(x = "Gender", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE) 
 
 
-# Proportions: Regression
+# Each case: Regression
 race_case <- expand.dft(race_counts, freq = "race_count")
 
-m_race_gend <- lm(prob_computerization ~ race_group, data = race_case)
+m_race_gend <- lm(prob_computerization ~ poly(race_group, 2), data = race_case)
 summary(m_race_gend)
 
