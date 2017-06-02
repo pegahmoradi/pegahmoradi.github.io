@@ -1,5 +1,6 @@
 ---
-title: "About This Website"
+title: "About"
+output: html_document
 ---
 
-More about this website.
+My name is Pegah, and I am an undergraduate at Cornell University. I am also starting to renovate my website. Please come back soon for more detailed and interesting information!
