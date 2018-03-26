@@ -1,14 +1,18 @@
-name: "my-website"
+name: "Pegah Moradi"
 navbar:
-  title: "My Website"
+  title: "Pegah Moradi"
   left:
     - text: "Home"
       href: index.html
     - text: "About"
       href: about.html
+    - text: "Resume"
+      href: CV.pdf
+    - text: "Projects"
+      href: index.html
 output_dir: "."
 output:
   html_document:
-    theme: cosmo
+    theme: readable
     highlight: textmate
     css: styles.css

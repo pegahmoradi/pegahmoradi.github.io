@@ -7,6 +7,7 @@ library(plyr)
 library(tidyr)
 library(mosaic)
 library(vcdExtra)
+library(stargazer)
 
 data<-read.csv("automation_race_merged_clean.csv")
 data <- data %>% na.omit()
@@ -25,22 +26,75 @@ data_gend <- data %>%  gather(gender, pct_gend,
                               -white, -black, -asian, -hisp_latino, -prob_computerization) 
 
 # All race/ethnicity groups
-ggplot(data_RE, aes(y = prob_computerization, x = pct_race, color = race_group)) +
-  geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 100) +theme_bw() + 
+  ggplot(data_RE, aes(y = prob_computerization, x = pct_race, color = race_group)) +
+  geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 100) +theme_bw() +
   labs(title = "All workers") +scale_color_discrete(name="Race/Ethnicity",
-                                                    labels=c("Asian", "Black", "Hispanic/Latino","White"))
+                                                    labels=c("Asian", "Black", "Hispanic/Latino","White")) +
+  stat_smooth(method = "lm", se = FALSE)
 
+  ##########################
+  # Fit our regression model
+  ##########################
+  
+  summary(model <- lm(prob_computerization ~ pct_race*race_group, data = data_RE))
+  
+  # Stargazer table
+  stargazer(model, title = "Automation  by Race", 
+            dep.var.labels = "Probability of Automation",
+            covariate.labels = c("Pct Ocuppation", "Black", "Latino", "White", "Pct Occ:Black", "Pct Occ:Latino",
+                                 "Pct Occ:White"))
+  
+  xhyp <- expand.grid(pct_race = seq(0,50),
+                      race_group = c("black", "hisp_latino", "asian")) 
+  
+  preds <- predict(model, xhyp, interval = "confidence")
+
+  preds_df <- cbind(preds, xhyp)
+  race_labels <- c(
+    `black` = "Black",
+    `hisp_latino` = "Hispanic/Latino",
+    `asian` = "Asian",
+    `white` = "White"
+  )
+  ggplot(preds_df, aes(x = pct_race, y=fit,
+                       ymin = lwr, ymax = upr,
+                       color = race_group,
+                       fill = race_group)) +
+    geom_line() +
+    geom_ribbon(alpha = .5) +
+    facet_wrap(~ race_group, labeller = as_labeller(race_labels), strip.position ="bottom") +
+    labs(title = "Predicted Probability of Automation: Minority Workers",
+         x = "Percent in Occupation by Race", y = "Predicted Probability of Automation") +
+    theme_minimal()+
+    theme(legend.position = "none",strip.placement ="outside")
+  
+
+  
+  xhyp_white <- expand.grid(pct_race = seq (0,100),
+                            race_group = "white")
+  preds_white <- predict(model, xhyp_white, interval = "confidence")
+  preds_df_white <- cbind(preds_white, xhyp_white)
+  ggplot(preds_df_white, aes(x = pct_race, y=fit,
+                       ymin = lwr, ymax = upr)) +
+    geom_line() +
+    geom_ribbon(alpha = .5) +
+    labs(title = "Predicted Probability of Automation: White Workers",
+         x = "Percent White in Occupation", y = "Predicted Probability of Automation")+
+    theme_minimal()+
+    theme(legend.position="none")
+#######################################################################################
 
 # Minority groups
 ggplot(filter(data_RE, race_group == "black" | race_group == "asian" | race_group == "hisp_latino"), aes(y = prob_computerization, x = pct_race, color = race_group)) +
-  geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 30) +theme_bw()+ 
-  labs(title = "Minority workers") +scale_color_discrete(name="Race/Ethnicity",
+  geom_jitter(alpha = .3) + geom_smooth(se= T, size = 1.3) + xlim(0, 30) +theme_bw()+ 
+  labs(title = "Minority workers", x = "Percent Race/Ethnicity", y = "Probability of Automation") +scale_color_discrete(name="Race/Ethnicity",
                                                          labels=c("Asian", "Black", "Hispanic/Latino"))
 
 # White
 ggplot(filter(data_RE, race_group == "white"), aes(y = prob_computerization, x = pct_race, color = race_group)) +
   geom_jitter(alpha = .3) + geom_smooth(size = 1.3) + xlim(50, 100) +theme_bw()+ 
-  labs(title = "White workers")
+  labs(title = "White workers", x = "Percent White", y = "Probability of Automation")+
+  theme(legend.position="none")
 
 # Women vs. Men
 
@@ -111,8 +165,8 @@ race_freq <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, race_counts))
 
 
 # RACE/ETHNICITY: COUNTS
-ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(x = "Probability of computerization", y= "Number of workers (Thousands)") +scale_color_discrete(name="Race/Ethnicity",
-                                                                                                                                                                                                                                                                                                                                             labels=c("Asian", "Black", "Hispanic/Latino","White"))
+ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(x = "Probability of computerization", y= "Number of workers (Thousands)") +
+  scale_color_discrete(name="Race/Ethnicity", labels=c("Asian", "Black", "Hispanic/Latino","White"))
 
 # Gender counts
 gend_counts <- data_num %>% gather(gender, gend_count,
@@ -163,7 +217,7 @@ sum(effects$asian_effect)
 sum(effects$black_effect)
 sum(effects$hisp_latino_effect)
 sum(effects$white_effect)
-race <- c("asian","black","hispanic/latino","white")
+race <- c("asian","black","hisp_latino","white")
 sum <- c(
   sum(effects$asian_effect),
   sum(effects$black_effect),
@@ -199,8 +253,13 @@ controlled_gend <- c(
 effect_controlled <- data.frame(race, controlled)
 effect_controlled_gend <- data.frame(gend, controlled_gend)
 
-ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + theme_bw() + labs(x = "Race", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE) 
-ggplot(effect_gend, aes(x = gend, y = controlled_gend, fill = gend)) +geom_col() + theme_bw() + labs(x = "Gender", y = "Aggregate automation effect value \n controlled for proportion of workforce") + guides(fill=FALSE) 
+
+ggplot(effect_race, aes(x = race, y = controlled, fill = race)) +geom_col() + theme_bw() +
+  labs(x = "Race", y = "Aggregate Automation Effect δ", labeller=race_labels) + guides(fill=FALSE) 
+ggplot(effect_gend, aes(x = gend, y = controlled_gend, fill = gend)) +geom_col() +
+  theme_bw() +
+  labs(x = "Gender", y = "Aggregate automation effect value \n controlled for proportion of workforce") +
+  guides(fill=FALSE) 
 
 
 # Each case: Regression
@@ -209,3 +268,28 @@ race_case <- expand.dft(race_counts, freq = "race_count")
 m_race_gend <- lm(prob_computerization ~ poly(race_group, 2), data = race_case)
 summary(m_race_gend)
 
+# Prof. Garcia-Rios Data
+
+data<-read.csv("automation_race_merged_clean.csv")
+data <- data %>% na.omit()
+data %>% glimpse()
+data2 <- data %>%  gather(race_group, pct_race, 
+                          -occupation, -tot_employed, 
+                          -women, -prob_computerization) 
+
+data2 %>% glimpse()
+
+ggplot(data2, aes(y = prob_computerization,
+                  x = pct_race, 
+                  color = race_group)) +
+  geom_jitter(alpha = .3) + 
+  geom_smooth(se= F, size = 1.3) + 
+  xlim(0, 30) +
+  theme_bw()
+
+ggplot(data2, aes(y = prob_computerization,
+                  x = women)) +
+  geom_jitter(alpha = .2) + 
+  geom_smooth(method = lm) + 
+  xlim(0, 30) +
+  theme_bw()
