@@ -91,7 +91,7 @@ ggplot(filter(data_RE, race_group == "black" | race_group == "asian" | race_grou
                                                          labels=c("Asian", "Black", "Hispanic/Latino"))
 
 # White
-ggplot(filter(data_RE, race_group == "white"), aes(y = prob_computerization, x = pct_race, color = race_group)) +
+ggplot(filter(data_RE, race_group == "white"), aes(y = prob_computerization, x = pct_race)) +
   geom_jitter(alpha = .3) + geom_smooth(size = 1.3) + xlim(50, 100) +theme_bw()+ 
   labs(title = "White workers", x = "Percent White", y = "Probability of Automation")+
   theme(legend.position="none")
