@@ -8,10 +8,31 @@
 /*----------------------------------------*/
 /* Template default CSS
 /*----------------------------------------*/
+@import url('https://fonts.googleapis.com/css?family=Raleway');
+/*@font-face {
+  font-family: 'Raleway';
+  font-style: normal;
+  font-weight: 300;
+  src: url(fonts/opensans-light.woff2);
+}*/
+
+@font-face {
+    font-family: "Raleway";
+    src: url("/fonts/Raleway/Raleway.eot");
+    src: url("/fonts/Raleway/Raleway-Regular.eot?#iefix") format('embedded-opentype'),
+         url("/fonts/Raleway/Raleway-Regular.woff2") format('woff2'),
+         url("/fonts/Raleway/Raleway-Regular.woff") format('woff'),
+         url("/fonts/Raleway/Raleway-Regular.ttf") format('truetype');
+    font-weight: 400;
+    font-style: normal;
+}
+
+
 html,
+
 body {
 	height: 100%;
-	font-family: 'Josefin Sans', sans-serif;
+	font-family: 'Raleway', sans-serif;
 }
 
 h1,
@@ -23,7 +44,8 @@ h6 {
 	color: #40424a;
 	margin: 0;
 	font-weight: 600;
-	font-family: 'Josefin Sans', sans-serif;
+	font-family: 'Raleway', sans-serif;
+
 }
 
 h2 {
@@ -472,7 +494,7 @@ ol {
 	z-index: 5;
 }
 
-.social-section .social-link-warp:after {
+/*.social-section .social-link-warp:after {
 	position: absolute;
 	content: '';
 	width: 50%;
@@ -481,7 +503,7 @@ ol {
 	top: 50%;
 	margin-top: 1px;
 	background: #cbcbcb;
-}
+}*/
 
 /*---------------------
 	Resume section
@@ -1037,12 +1059,13 @@ ol {
 
 .home-five-style .social-links a {
 	font-size: 30px;
-	margin-right: 40px;
-	color: #b9b9b9;
+	margin-left: 10px;
+	margin-right: 10px;
+	color: #484848;
 }
 
 .home-five-style .social-links a:hover {
-	color: #484848;
+	color: #b9b9b9;
 }
 
 .home-five-style .resume-list li {
