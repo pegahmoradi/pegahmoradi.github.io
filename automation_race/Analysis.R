@@ -33,6 +33,17 @@ data_gend <- data %>%  gather(gender, pct_gend,
   geom_jitter(alpha = .3) + geom_smooth(se= F, size = 1.3) + xlim(0, 100) +theme_bw() +
   labs(title = "All workers", x = "Percent in occupation by race", y = "Probability of computerization") +scale_color_discrete(name="Race/Ethnicity",
                                                     labels=c("Asian", "Black", "Hispanic/Latino","White"))
+# For printing (Black and white)
+  ggplot(data_RE, aes(y = prob_computerization, x = pct_race, linetype = race_group, shape= race_group)) +
+    geom_jitter(alpha = .3) +
+    geom_smooth(se= F, size = .5, color = "black") +
+    xlim(0, 100) + theme_bw() +
+    labs(title = "All workers", x = "Percent in occupation by race", y = "Probability of computerization")+
+    scale_linetype_manual(name= "Race/Ethnicity", values=c("solid", "dotted", "dashed", "dotdash"),
+                                                           labels=c("Asian", "Black", "Hispanic/Latino","White")) +
+    scale_shape_manual(name="Race/Ethnicity", values= c(0, 1, 3, 2),
+                       labels=c("Asian", "Black", "Hispanic/Latino","White"))
+    
 
   ##########################
   # Fit our regression model
@@ -115,10 +126,32 @@ ggplot(filter(data_RE, race_group == "black" | race_group == "asian" | race_grou
   geom_jitter(alpha = .3) + geom_smooth(se= T, size = 1.3) + xlim(0, 30) +theme_bw()+ 
   labs(title = "Automation of minority workers by representation in occupation", x = "Percent race/ethnicity", y = "Probability of computerization") +scale_color_discrete(name="Race/Ethnicity",
                                                          labels=c("Asian", "Black", "Hispanic/Latino"))
+# For printing (Black and white)
+  ggplot(filter(data_RE, race_group == "black" | race_group == "asian" | race_group == "hisp_latino"),
+         aes(y = prob_computerization, x = pct_race, linetype = race_group, shape = race_group)) +
+    geom_jitter(alpha = .3) +
+    geom_smooth(se= T, size = .5, color = "black") +
+    xlim(0, 30) + theme_bw() +
+    labs(title = "Automation of minority workers by representation in occupation",
+         x = "Percent race/ethnicity", y = "Probability of computerization") +
+    scale_color_discrete(name="Race/Ethnicity", labels=c("Asian", "Black", "Hispanic/Latino"))+
+    scale_linetype_manual(name= "Race/Ethnicity", values=c("solid", "dotted", "dashed", "dotdash"),
+                          labels=c("Asian", "Black", "Hispanic/Latino","White")) +
+    scale_shape_manual(name="Race/Ethnicity", values= c(0, 1, 3, 2),
+                       labels=c("Asian", "Black", "Hispanic/Latino","White"))
 
 # White
 ggplot(filter(data_RE, race_group == "white"), aes(y = prob_computerization, x = pct_race)) +
   geom_jitter(alpha = .3) + geom_smooth(size = 1.3) + xlim(50, 100) +theme_bw()+ 
+  labs(title = "Automation of white workers by representation in occupation", x = "Percent White", y = "Probability of computerization")+
+  theme(legend.position="none")
+
+# For printing (Black and white)
+ggplot(filter(data_RE, race_group == "white"),
+       aes(y = prob_computerization, x = pct_race)) +
+  geom_jitter(alpha = .3) +
+  geom_smooth(se= T, size = .8, color = "black") +
+  xlim(50, 100) + theme_bw() +
   labs(title = "Automation of white workers by representation in occupation", x = "Percent White", y = "Probability of computerization")+
   theme(legend.position="none")
 
@@ -193,12 +226,22 @@ race_freq <- as.data.frame(xtabs(race_count ~ pr_comp+race_group, race_counts))
 # RACE/ETHNICITY: COUNTS
 ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), color = race_group)) + geom_jitter(width = 0.01) + geom_smooth(se = F)+ theme_bw() + labs(x = "Probability of computerization", y= "Number of workers (Thousands)") +
   scale_color_discrete(name="Race/Ethnicity", labels=c("Asian", "Black", "Hispanic/Latino","White"))
+# For printing (Black & white)
+ggplot(race_freq, aes(y = Freq, x = as.numeric.factor(pr_comp), linetype = race_group, shape = race_group)) +
+  geom_jitter(width = 0.01, color="grey") + geom_smooth(se = F, size = 0.3, color="black")+ theme_bw() +
+  labs(x = "Probability of computerization", y= "Number of workers (Thousands)") +
+  scale_color_discrete(name="Race/Ethnicity", labels=c("Asian", "Black", "Hispanic/Latino","White"))+
+  scale_linetype_manual(name= "Race/Ethnicity", values=c("solid", "dotted", "dashed", "dotdash"),
+                        labels=c("Asian", "Black", "Hispanic/Latino","White")) +
+  scale_shape_manual(name="Race/Ethnicity", values= c(0, 1, 3, 2),
+                     labels=c("Asian", "Black", "Hispanic/Latino","White"))
 
 # Gender counts
 gend_counts <- data_num %>% gather(gender, gend_count,
                                         -occupation, -tot_employed, 
                                         -white, -black, -asian, -hisp_latino,
                                         -prob_computerization)
+
 
 gend_counts <- gend_counts %>% mutate(pr_comp= derivedFactor(
   "0.90" = (prob_computerization < 1 & prob_computerization >= 0.9),
