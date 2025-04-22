@@ -6,10 +6,10 @@
     <meta name="google-site-verification" content="G9J23R3aIkfcIUX6LwM0iIs-Ax2tkuQBVYP9_Yh4sQk" />
     <title>Pegah Moradi | Automation, Labor, and Retail Researcher</title>
     <link rel="icon" href="cartfavicon.ico" type="image/x-icon">
-
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
     <style>
         body {
@@ -83,10 +83,34 @@
       list-style-type: "→ "; /* Change bullet style to square */
     }
 
-/*    .custom-bullets li {
-        content:"→";
-        font-weight: bold;
-    }*/
+    .header-links {
+    display: flex;
+    align-items: center;
+    
+}
+
+.header-links a {
+    text-decoration: none;
+    color: black;
+    font-weight: bold;
+
+}
+
+.header-links i {
+    font-size: 1.5em; /* Match title text size */
+    transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.header-links a:hover i {
+    color: #0077b5;
+    transform: scale(1.1);
+}
+
+.cv-link {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
 
     @media only screen and (max-width: 900px) {
             .header-container {
@@ -111,12 +135,14 @@
 
     <header>
         <div class="header-container">
-            <h1><a href="index.html" class="home-link">Pegah Moradi 🤖</a></h1>
-<!--             <nav>
-                <a href="contact.html">Contact</a>
-                <a href="#">CV</a>
-            </nav> -->
-        </div>
+    <h1><a href="index.html" class="home-link">Pegah Moradi 🛒</a></h1>
+    <nav class="header-links">
+        <a href="https://docs.google.com/document/d/e/2PACX-1vRzSdytU69BdDYBdprrkFgCvaZ3jVuzV7Ssj0lipE2bVLfjPcKr2oOBsuPchqQf-RpQjw01xlsr-2bz/pub" class="cv-link">CV</a>
+        <a href="mailto:pegah@infosci.cornell.edu" aria-label="Email"><i class="fas fa-envelope"></i></a>
+        <a href="https://www.linkedin.com/in/pegahmoradi/" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+    </nav>
+</div>
+
     </header>
 
     <section>
@@ -125,11 +151,7 @@
 
         <p>My dissertation focuses on <b>how self-checkout machines and other kinds of retail automation have been changing frontline retail work.</b> Beyond retail, my research on automation and AI has spanned contexts ranging from behavioral advertising to politics to sports to transportation.</p>
 
-        <p> I am an NSF Graduate Research Fellow and a 2024-2025 Siegel Family Endowment <a href="https://www.siegelendowment.org/research/fellows/">Research Fellow</a>. My work is also supported by Microsoft Research and the MacArthur Foundation through the Cornell <a href="https://aipp.cis.cornell.edu/">Artificial Intelligence, Policy, and Practice Initiative</a>.
-
-        <p>I previously held research fellowships at the <a href="https://innovation.consumerreports.org/author/pegah-moradi/">Consumer Reports Innovation Lab</a>, the <a href="https://www.iq.harvard.edu/people/program/data-privacy-lab"> Harvard Data Privacy Lab</a>, and Georgetown S2ERC. Before my PhD, I was a project manager at a software company in Washington, DC, where I managed teams of engineers and designers to deliver custom-built products for a variety of Fortune 500 companies.</p>
-
-        <p>I hold an M.S. in Information Science and a B.A. in Politics and Technology (through the interdisciplinary College Scholar program), both from Cornell.</p>
+        <p>My work on automation and labor has been covered in <a href="https://www.thenation.com/article/society/retail-grocery-automation-esl-kroger/"><i>The Nation</i></a> magazine, <a href="https://www.computerworld.com/article/3843213/how-ai-enabled-bossware-is-being-used-to-track-and-evaluate-your-work.html"><i>Computerworld</i></a>, and <a href="https://news.cornell.edu/stories/2024/02/autopen-shows-perils-automation-communications"><i>The Cornell Chronicle</i></a>. My research on behavioral advertising has been <a href="https://www.ftc.gov/system/files/ftc_gov/pdf/statement-chair-khan-social-media-6b.pdf">cited by former FTC chair Lina Khan</a>, and I have consulted on bills regarding retail technology for members of Congress. The public-interest focus of my research is reflected in its support from the NSF Graduate Research Fellowship, the <a href="https://www.siegelendowment.org/research/fellows/">Siegel Family Endowment</a>, and the MacArthur Foundation through the Cornell <a href="https://aipp.cis.cornell.edu/">Artificial Intelligence, Policy, and Practice Initiative</a>.</p>
 
         <p>My full CV is available <a href="https://docs.google.com/document/d/e/2PACX-1vRzSdytU69BdDYBdprrkFgCvaZ3jVuzV7Ssj0lipE2bVLfjPcKr2oOBsuPchqQf-RpQjw01xlsr-2bz/pub">here</a>. You can also connect with me at:</p>
             <ul>
