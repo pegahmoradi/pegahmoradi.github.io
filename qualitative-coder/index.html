@@ -426,6 +426,7 @@ textarea.notes-input:focus {
           <button class="btn btn-secondary" id="next-btn" onclick="goNext()">Next →</button>
         </div>
         <button class="btn btn-primary" onclick="saveToSheets()">↑ Save to Sheets</button>
+        <button class="btn btn-secondary" id="save-all-btn" onclick="saveAllToSheets()">↑ Save All</button>
       </div>
       <div class="status-msg status-info" id="status-msg"></div>
     </div>
@@ -815,15 +816,81 @@ async function saveToSheets() {
   setStatus('Saving…', 'info');
   try {
     // no-cors avoids preflight; we can't read the response but the write succeeds
+    // Content-Type must be text/plain for no-cors mode —
+    // application/json triggers a preflight that no-cors blocks silently.
     await fetch(state.sheetsUrl, {
       method: 'POST',
       mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(payload),
     });
     setStatus('✓ Saved to Sheets', 'ok');
   } catch(err) {
     setStatus('✗ Network error — check your URL in Settings.', 'err');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Save ALL codings to Sheets (loops through everything in localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+async function saveAllToSheets() {
+  flushCoding();
+
+  if (!state.sheetsUrl) {
+    setStatus('⚠ No Sheets URL set — click ⚙ Settings to add one.', 'err');
+    return;
+  }
+
+  const entries = Object.entries(state.codings);
+  if (entries.length === 0) {
+    setStatus('No codings saved yet.', 'info');
+    return;
+  }
+
+  const btn = document.getElementById('save-all-btn');
+  btn.disabled = true;
+
+  let sent = 0;
+  let failed = 0;
+
+  for (const [id, coding] of entries) {
+    const row = SPEECH_ACTS.find(r => String(r.id) === String(id));
+    if (!row) continue;
+
+    const payload = {
+      id:           row.id,
+      company_name: row.company_name,
+      ticker:       row.ticker,
+      quarter:      row.quarter,
+      section:      row.section,
+      speaker:      row.speaker,
+      role:         row.role,
+      speech_act:   (row.speech_act || '').substring(0, 2000),
+      codes:        coding.codes.join(', '),
+      pegah_notes:  coding.notes,
+      timestamp:    new Date().toISOString(),
+    };
+
+    setStatus(`Saving… ${sent + 1} / ${entries.length}`, 'info');
+
+    try {
+      await fetch(state.sheetsUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload),
+      });
+      sent++;
+    } catch(e) {
+      failed++;
+    }
+  }
+
+  btn.disabled = false;
+  if (failed === 0) {
+    setStatus(`✓ Saved all ${sent} codings to Sheets`, 'ok');
+  } else {
+    setStatus(`✓ ${sent} saved, ✗ ${failed} failed — try again`, 'err');
   }
 }
 
