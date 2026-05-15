@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qualitative Coder</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Password gate ── */
+#pw-gate {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--primary);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#pw-gate.hidden { display: none; }
+.pw-card {
+  background: white; border-radius: 12px;
+  padding: 40px 36px; max-width: 380px; width: 100%;
+  box-shadow: 0 24px 64px rgba(0,0,0,.4);
+  text-align: center;
+}
+.pw-card h1 { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+.pw-card p  { font-size: 13px; color: var(--secondary); margin-bottom: 24px; }
+.pw-input-wrap { position: relative; margin-bottom: 12px; }
+.pw-input {
+  width: 100%; padding: 11px 44px 11px 14px;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 15px; font-family: inherit;
+  transition: border-color .15s;
+}
+.pw-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+.pw-toggle {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; color: var(--secondary); padding: 2px;
+}
+.pw-btn {
+  width: 100%; padding: 11px;
+  background: var(--accent); color: white;
+  border: none; border-radius: 8px;
+  font-size: 15px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: background .15s;
+}
+.pw-btn:hover:not(:disabled) { background: #4338ca; }
+.pw-btn:disabled { opacity: .6; cursor: not-allowed; }
+.pw-error {
+  margin-top: 10px; font-size: 13px;
+  color: #b91c1c; min-height: 18px;
+}
+
+:root {
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --primary: #1a1f36;
+  --secondary: #6b7280;
+  --border: #e5e7eb;
+  --accent: #4f46e5;
+  --accent-light: #eef2ff;
+  --shadow: 0 1px 3px rgba(0,0,0,.1);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+  --radius: 10px;
+
+  /* Category palette */
+  --crime-bg: #fef2f2; --crime-border: #fca5a5; --crime-text: #b91c1c;
+  --covid-bg: #f5f3ff; --covid-border: #c4b5fd; --covid-text: #6d28d9;
+  --self-bg:  #eff6ff; --self-border:  #93c5fd; --self-text:  #1d4ed8;
+  --tech-bg:  #f0fdf4; --tech-border:  #86efac; --tech-text:  #15803d;
+  --work-bg:  #fff7ed; --work-border:  #fdba74; --work-text:  #c2410c;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--primary);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Header ── */
+.app-header {
+  background: var(--primary);
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+}
+.app-title { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
+.header-right { display: flex; align-items: center; gap: 14px; }
+.progress-text { font-size: 13px; opacity: .75; }
+.settings-btn {
+  background: none; border: 1px solid rgba(255,255,255,.25);
+  color: white; cursor: pointer; font-size: 15px;
+  padding: 4px 10px; border-radius: 6px;
+  opacity: .8; transition: opacity .15s, background .15s;
+}
+.settings-btn:hover { opacity: 1; background: rgba(255,255,255,.1); }
+
+.progress-bar-track { height: 3px; background: #d1d5db; }
+.progress-bar-fill  { height: 100%; background: var(--accent); transition: width .3s; }
+
+/* ── Layout ── */
+main { max-width: 800px; margin: 0 auto; padding: 20px 16px 80px; }
+
+.top-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px; flex-wrap: wrap; gap: 8px;
+}
+.jump-form { display: flex; align-items: center; gap: 6px; }
+.jump-label { font-size: 12px; color: var(--secondary); }
+.jump-input {
+  width: 64px; padding: 6px 8px; text-align: center;
+  border: 1.5px solid var(--border); border-radius: 6px;
+  font-size: 14px; font-family: inherit;
+}
+.jump-input:focus { outline: none; border-color: var(--accent); }
+
+/* ── Card ── */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.card-section { padding: 20px 24px; }
+.card-section + .card-section { border-top: 1px solid var(--border); }
+
+/* ── Company header ── */
+.company-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; flex-wrap: wrap; gap: 8px;
+}
+.company-name { font-size: 21px; font-weight: 700; line-height: 1.2; }
+.quarter-badge {
+  background: var(--accent-light); color: var(--accent);
+  font-weight: 600; font-size: 13px;
+  padding: 4px 12px; border-radius: 20px; white-space: nowrap;
+}
+.meta-row { font-size: 13px; color: var(--secondary); margin-top: 5px; }
+.meta-row span + span::before { content: ' · '; }
+
+/* ── Speech act ── */
+.speech-act-text {
+  font-size: 15px; line-height: 1.75; color: #1f2937;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* ── Keyword highlights ── */
+mark { border-radius: 3px; padding: 1px 3px; font-style: normal; }
+.kw-crime       { background: var(--crime-bg); color: var(--crime-text); border-bottom: 2px solid var(--crime-border); }
+.kw-covid       { background: var(--covid-bg); color: var(--covid-text); border-bottom: 2px solid var(--covid-border); }
+.kw-selfservice { background: var(--self-bg);  color: var(--self-text);  border-bottom: 2px solid var(--self-border);  }
+.kw-tech        { background: var(--tech-bg);  color: var(--tech-text);  border-bottom: 2px solid var(--tech-border);  }
+.kw-worker      { background: var(--work-bg);  color: var(--work-text);  border-bottom: 2px solid var(--work-border);  }
+
+/* ── Legend ── */
+.legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.legend-item {
+  font-size: 11px; font-weight: 600; letter-spacing: .5px;
+  padding: 2px 9px; border-radius: 12px; text-transform: uppercase;
+  border: 1px solid;
+}
+.legend-crime       { background: var(--crime-bg); color: var(--crime-text); border-color: var(--crime-border); }
+.legend-covid       { background: var(--covid-bg); color: var(--covid-text); border-color: var(--covid-border); }
+.legend-selfservice { background: var(--self-bg);  color: var(--self-text);  border-color: var(--self-border);  }
+.legend-tech        { background: var(--tech-bg);  color: var(--tech-text);  border-color: var(--tech-border);  }
+.legend-worker      { background: var(--work-bg);  color: var(--work-text);  border-color: var(--work-border);  }
+
+/* ── See more details ── */
+details.more-info { margin-top: 14px; }
+details.more-info summary {
+  cursor: pointer; font-size: 13px; color: var(--accent);
+  font-weight: 500; list-style: none; user-select: none;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+details.more-info summary::before {
+  content: '▶'; font-size: 9px; transition: transform .2s; display: inline-block;
+}
+details.more-info[open] summary::before { transform: rotate(90deg); }
+details.more-info summary::-webkit-details-marker { display: none; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 16px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.detail-label { font-size: 11px; font-weight: 600; color: var(--secondary); text-transform: uppercase; letter-spacing: .4px; }
+.detail-value { font-size: 13px; color: var(--primary); margin-top: 2px; }
+
+/* ── Form fields ── */
+.field-label {
+  display: block; font-size: 11px; font-weight: 700;
+  color: var(--secondary); text-transform: uppercase;
+  letter-spacing: .6px; margin-bottom: 7px;
+}
+.field-hint { font-weight: 400; text-transform: none; font-size: 11px; color: #9ca3af; letter-spacing: 0; }
+
+textarea.notes-input {
+  width: 100%; padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 7px; font-size: 14px;
+  font-family: inherit; resize: vertical;
+  min-height: 68px; color: var(--primary);
+  transition: border-color .15s;
+}
+textarea.notes-input:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+}
+
+/* ── Tag chip input ── */
+.tag-input-wrap {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; padding: 7px 10px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  cursor: text; min-height: 44px;
+  transition: border-color .15s;
+}
+.tag-input-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.1);
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--accent-light); color: var(--accent);
+  font-size: 13px; font-weight: 500;
+  padding: 2px 6px 2px 10px; border-radius: 20px;
+  white-space: nowrap; max-width: 200px;
+}
+.tag-chip span { overflow: hidden; text-overflow: ellipsis; }
+.tag-remove {
+  background: none; border: none; cursor: pointer;
+  color: var(--accent); font-size: 16px; line-height: 1;
+  padding: 0 2px; opacity: .55; transition: opacity .15s; flex-shrink: 0;
+}
+.tag-remove:hover { opacity: 1; }
+.tag-text-input {
+  border: none; outline: none; font-size: 14px;
+  font-family: inherit; flex: 1; min-width: 110px;
+  background: transparent; color: var(--primary); padding: 2px 0;
+}
+
+/* ── Autocomplete ── */
+.autocomplete-wrap { position: relative; }
+.autocomplete-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: white; border: 1.5px solid var(--border);
+  border-radius: 7px; box-shadow: var(--shadow-md);
+  z-index: 50; max-height: 210px; overflow-y: auto;
+  display: none;
+}
+.autocomplete-dropdown.open { display: block; }
+.ac-item {
+  padding: 9px 14px; font-size: 13px; cursor: pointer; transition: background .1s;
+}
+.ac-item:hover, .ac-item.active {
+  background: var(--accent-light); color: var(--accent);
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 9px 18px; border-radius: 7px; font-size: 14px;
+  font-weight: 500; cursor: pointer; border: none;
+  transition: all .15s; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary  { background: var(--accent); color: white; }
+.btn-primary:not(:disabled):hover  { background: #4338ca; }
+.btn-primary:not(:disabled):active { transform: scale(.98); }
+.btn-secondary { background: white; color: var(--primary); border: 1.5px solid var(--border); }
+.btn-secondary:not(:disabled):hover { background: #f9fafb; border-color: #9ca3af; }
+.btn-ghost { background: none; color: var(--secondary); border: 1.5px solid var(--border); }
+.btn-ghost:hover { background: #f9fafb; color: var(--primary); }
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+
+/* ── Actions row ── */
+.actions {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.nav-group { display: flex; gap: 8px; }
+.status-msg { font-size: 12px; width: 100%; min-height: 18px; margin-top: 2px; }
+.status-ok   { color: #15803d; }
+.status-err  { color: #b91c1c; }
+.status-info { color: var(--secondary); }
+
+/* ── Settings modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.45);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: white; border-radius: var(--radius);
+  padding: 28px; max-width: 520px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2); max-height: 90vh; overflow-y: auto;
+}
+.modal h2 { font-size: 17px; margin-bottom: 10px; }
+.modal p  { font-size: 13px; color: var(--secondary); margin-bottom: 14px; line-height: 1.65; }
+.modal input[type=text] {
+  width: 100%; padding: 10px 12px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  font-size: 14px; font-family: inherit; margin-bottom: 4px;
+}
+.modal input[type=text]:focus { outline: none; border-color: var(--accent); }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+.modal ol { font-size: 13px; color: var(--secondary); padding-left: 18px; line-height: 2; }
+.modal code {
+  background: #f1f5f9; padding: 1px 5px; border-radius: 4px;
+  font-size: 12px; font-family: monospace;
+}
+.modal hr { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+@media (max-width: 580px) {
+  main { padding: 12px 10px 80px; }
+  .card-section { padding: 16px; }
+  .company-name { font-size: 18px; }
+  .actions { flex-direction: column; align-items: stretch; }
+  .nav-group { justify-content: space-between; }
+  .btn { justify-content: center; }
+  .top-bar { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Password gate ── -->
+<div id="pw-gate">
+  <div class="pw-card">
+    <h1>Qualitative Coder</h1>
+    <p>Enter your password to continue.</p>
+    <div class="pw-input-wrap">
+      <input class="pw-input" type="password" id="pw-input"
+             placeholder="Password" autocomplete="current-password">
+      <button class="pw-toggle" id="pw-toggle" type="button"
+              onclick="togglePwVisibility()" title="Show/hide password">👁</button>
+    </div>
+    <button class="pw-btn" id="pw-btn" onclick="checkPassword()">Unlock</button>
+    <div class="pw-error" id="pw-error"></div>
+  </div>
+</div>
+
+<!-- ── Header ── -->
+<header class="app-header">
+  <span class="app-title">Qualitative Coder</span>
+  <div class="header-right">
+    <span class="progress-text" id="progress-text">— / —</span>
+    <button class="settings-btn" onclick="openSettings()" title="Settings">⚙ Settings</button>
+  </div>
+</header>
+<div class="progress-bar-track">
+  <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+</div>
+
+<main>
+  <!-- ── Top bar: jump + download ── -->
+  <div class="top-bar">
+    <div class="jump-form">
+      <span class="jump-label">Jump to row</span>
+      <input type="number" class="jump-input" id="jump-input" min="1" placeholder="#">
+      <button class="btn btn-secondary btn-sm" onclick="jumpTo()">Go</button>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="downloadCSV()">⬇ Download CSV</button>
+  </div>
+
+  <!-- ── Main card ── -->
+  <div class="card">
+
+    <!-- Company + quarter -->
+    <div class="card-section">
+      <div class="company-row">
+        <span class="company-name" id="company-name">—</span>
+        <span class="quarter-badge" id="quarter">—</span>
+      </div>
+      <div class="meta-row" id="meta-row"></div>
+    </div>
+
+    <!-- Speech act -->
+    <div class="card-section">
+      <div class="speech-act-text" id="speech-act"></div>
+      <div class="legend" id="legend"></div>
+      <details class="more-info">
+        <summary>See more details</summary>
+        <div class="detail-grid" id="detail-grid"></div>
+      </details>
+    </div>
+
+    <!-- Coding area -->
+    <div class="card-section">
+      <div style="margin-bottom:18px">
+        <label class="field-label" for="notes-input">Pegah Notes</label>
+        <textarea class="notes-input" id="notes-input" rows="3" placeholder="Notes…"></textarea>
+      </div>
+
+      <label class="field-label">
+        Codes
+        <span class="field-hint">— Tab or , to add &nbsp;·&nbsp; Backspace to remove last</span>
+      </label>
+      <div class="autocomplete-wrap">
+        <div class="tag-input-wrap" id="tag-input-wrap" onclick="focusTagInput()">
+          <span id="tags-container"></span>
+          <input type="text" class="tag-text-input" id="tag-input" placeholder="Add code…" autocomplete="off">
+        </div>
+        <div class="autocomplete-dropdown" id="autocomplete"></div>
+      </div>
+    </div>
+
+    <!-- Navigation + save -->
+    <div class="card-section">
+      <div class="actions">
+        <div class="nav-group">
+          <button class="btn btn-secondary" id="prev-btn" onclick="goPrev()">← Prev</button>
+          <button class="btn btn-secondary" id="next-btn" onclick="goNext()">Next →</button>
+        </div>
+        <button class="btn btn-primary" onclick="saveToSheets()">↑ Save to Sheets</button>
+      </div>
+      <div class="status-msg status-info" id="status-msg"></div>
+    </div>
+
+  </div><!-- /.card -->
+</main>
+
+<!-- ── Settings modal ── -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h2>⚙ Settings</h2>
+    <p>Paste your Google Apps Script Web App URL. Each time you click "Save to Sheets," the current row's codes and notes are sent there.</p>
+    <input type="text" id="sheets-url-input" placeholder="https://script.google.com/macros/s/…/exec">
+    <hr>
+    <p><strong>First-time setup</strong></p>
+    <ol>
+      <li>Go to <a href="https://script.google.com" target="_blank">script.google.com</a> → New project</li>
+      <li>Paste the contents of <code>apps-script.gs</code> (in this folder) into the editor</li>
+      <li>Click <strong>Deploy → New deployment → Web app</strong></li>
+      <li>Set <em>Execute as:</em> <strong>Me</strong> &nbsp;·&nbsp; <em>Who has access:</em> <strong>Anyone</strong></li>
+      <li>Click Deploy, copy the Web App URL, and paste it above</li>
+    </ol>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeSettings()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSettings()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Constants
+// ─────────────────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'qualcoder_v1';
+
+const CATEGORIES = [
+  { key: 'CRIME',       label: 'Crime',        cls: 'crime'       },
+  { key: 'COVID',       label: 'Covid',        cls: 'covid'       },
+  { key: 'SELFSERVICE', label: 'Self-Service', cls: 'selfservice' },
+  { key: 'TECH',        label: 'Technology',   cls: 'tech'        },
+  { key: 'WORKER',      label: 'Worker',       cls: 'worker'      },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let state = {
+  currentIndex: 0,
+  codings: {},    // row id → { codes: string[], notes: string }
+  allTags: [],    // sorted list of every tag ever used — drives autocomplete
+  sheetsUrl: '',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bootstrap
+// ─────────────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  render();
+  setupEvents();
+  if (!state.sheetsUrl) setTimeout(openSettings, 500);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Persistence (localStorage)
+// ─────────────────────────────────────────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) Object.assign(state, JSON.parse(raw));
+    // Clamp index in case dataset changed
+    state.currentIndex = Math.max(0, Math.min(state.currentIndex, SPEECH_ACTS.length - 1));
+  } catch(e) { /* fresh start */ }
+}
+
+function saveState() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+// Return saved coding for this row; pre-fill notes from original data if unsaved
+function getCoding(id) {
+  if (state.codings[id]) return state.codings[id];
+  const row = SPEECH_ACTS.find(r => r.id === id);
+  return { codes: [], notes: row?.pegah_notes || '' };
+}
+
+function setCoding(id, codes, notes) {
+  state.codings[id] = { codes: [...codes], notes };
+  // Merge new tags into the master tag list for autocomplete
+  codes.forEach(tag => {
+    if (tag && !state.allTags.includes(tag)) state.allTags.push(tag);
+  });
+  state.allTags.sort();
+  saveState();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render — updates all DOM from state
+// ─────────────────────────────────────────────────────────────────────────────
+function render() {
+  const row    = SPEECH_ACTS[state.currentIndex];
+  const total  = SPEECH_ACTS.length;
+  const coding = getCoding(row.id);
+
+  // Progress
+  document.getElementById('progress-text').textContent = `${state.currentIndex + 1} / ${total}`;
+  document.getElementById('progress-fill').style.width =
+    `${((state.currentIndex + 1) / total * 100).toFixed(3)}%`;
+
+  // Company header
+  document.getElementById('company-name').textContent = row.company_name || row.ticker || '—';
+  document.getElementById('quarter').textContent = row.quarter || '—';
+
+  // Meta row (ticker · section · speaker · role)
+  const metaParts = [row.ticker, row.section, row.speaker, row.role].filter(Boolean);
+  document.getElementById('meta-row').innerHTML =
+    metaParts.map(p => `<span>${esc(p)}</span>`).join('');
+
+  // Speech act with keyword highlights
+  document.getElementById('speech-act').innerHTML = highlightKeywords(row.speech_act || '', row);
+
+  // Active-category legend
+  const legend = document.getElementById('legend');
+  legend.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    if (row[`${cat.key}_by_keywords`]) {
+      const el = document.createElement('span');
+      el.className = `legend-item legend-${cat.cls}`;
+      el.textContent = cat.label;
+      legend.appendChild(el);
+    }
+  });
+
+  // "See more" detail grid
+  document.getElementById('detail-grid').innerHTML = [
+    ['ID',              row.id],
+    ['Date',            row.date],
+    ['Section',         row.section],
+    ['Start Page',      row.start_page],
+    ['CapIQ Page',      row.CapIQ_page],
+    ['Speaker Type',    row.speaker_type],
+    ['# Topics',        row.n_topics],
+    ['Date to Finish',  row.date_to_finish],
+  ].map(([label, val]) => `
+    <div>
+      <div class="detail-label">${label}</div>
+      <div class="detail-value">${val != null ? esc(String(val)) : '—'}</div>
+    </div>`
+  ).join('');
+
+  // Notes
+  document.getElementById('notes-input').value = coding.notes;
+
+  // Tags
+  renderTags(coding.codes);
+
+  // Nav buttons
+  document.getElementById('prev-btn').disabled = state.currentIndex === 0;
+  document.getElementById('next-btn').disabled = state.currentIndex === total - 1;
+
+  // Clear status
+  setStatus('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyword highlighting
+// ─────────────────────────────────────────────────────────────────────────────
+function esc(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function escRe(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function highlightKeywords(text, row) {
+  if (!text) return '';
+
+  // Collect { kw, cls } pairs from active keyword columns
+  const pairs = [];
+  CATEGORIES.forEach(cat => {
+    if (row[`${cat.key}_by_keywords`] && row[`${cat.key}_keyword`]) {
+      String(row[`${cat.key}_keyword`])
+        .split(',')
+        .map(k => k.trim())
+        .filter(k => k.length > 0)
+        .forEach(kw => pairs.push({ kw, cls: `kw-${cat.cls}` }));
+    }
+  });
+
+  // HTML-escape the source text first (keywords are plain words — safe to match after)
+  let result = esc(text);
+  if (pairs.length === 0) return result;
+
+  // Sort longest-first to prevent partial overlaps
+  pairs.sort((a, b) => b.kw.length - a.kw.length);
+
+  pairs.forEach(({ kw, cls }) => {
+    const re = new RegExp(escRe(esc(kw)), 'gi');
+    // Guard against double-wrapping already-marked text
+    result = result.replace(re, match =>
+      match.startsWith('<mark') ? match : `<mark class="${cls}">${match}</mark>`
+    );
+  });
+
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tag (chip) input
+// ─────────────────────────────────────────────────────────────────────────────
+let currentTags = [];
+let acActiveIdx = -1;
+
+function focusTagInput() { document.getElementById('tag-input').focus(); }
+
+function renderTags(tags) {
+  currentTags = tags ? [...tags] : [];
+  const container = document.getElementById('tags-container');
+  container.innerHTML = currentTags.map((tag, i) => `
+    <span class="tag-chip">
+      <span>${esc(tag)}</span>
+      <button class="tag-remove" data-idx="${i}" title="Remove">&times;</button>
+    </span>`
+  ).join('');
+  container.querySelectorAll('.tag-remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      removeTag(parseInt(btn.dataset.idx));
+    });
+  });
+}
+
+function addTag(raw) {
+  const tag = raw.trim().toLowerCase().replace(/,/g, '');
+  if (!tag || currentTags.includes(tag)) return;
+  currentTags.push(tag);
+  flushCoding();
+  renderTags(currentTags);
+}
+
+function removeTag(idx) {
+  currentTags.splice(idx, 1);
+  flushCoding();
+  renderTags(currentTags);
+}
+
+// Save current notes + tags to state
+function flushCoding() {
+  const row   = SPEECH_ACTS[state.currentIndex];
+  const notes = document.getElementById('notes-input').value;
+  setCoding(row.id, currentTags, notes);
+}
+
+function setupTagInput() {
+  const input    = document.getElementById('tag-input');
+  const dropdown = document.getElementById('autocomplete');
+
+  input.addEventListener('keydown', e => {
+    const val   = input.value;
+    const items = dropdown.querySelectorAll('.ac-item');
+    const active = dropdown.querySelector('.ac-item.active');
+
+    if (e.key === 'Tab' || e.key === ',') {
+      e.preventDefault();
+      addTag(active ? active.dataset.tag : val);
+      input.value = '';
+      closeAC();
+
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (active) { addTag(active.dataset.tag); input.value = ''; closeAC(); }
+      else if (val.trim()) { addTag(val); input.value = ''; closeAC(); }
+
+    } else if (e.key === 'Backspace' && val === '') {
+      if (currentTags.length > 0) removeTag(currentTags.length - 1);
+
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      acActiveIdx = Math.min(acActiveIdx + 1, items.length - 1);
+      items.forEach((el, i) => el.classList.toggle('active', i === acActiveIdx));
+
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      acActiveIdx = Math.max(acActiveIdx - 1, -1);
+      items.forEach((el, i) => el.classList.toggle('active', i === acActiveIdx));
+
+    } else if (e.key === 'Escape') { closeAC(); }
+  });
+
+  input.addEventListener('input', () => {
+    acActiveIdx = -1;
+    updateAC(input.value);
+  });
+
+  // Small delay on blur so click on a suggestion registers first
+  input.addEventListener('blur', () => setTimeout(closeAC, 160));
+
+  // Auto-persist notes on every keystroke
+  document.getElementById('notes-input').addEventListener('input', flushCoding);
+}
+
+function updateAC(query) {
+  const dropdown = document.getElementById('autocomplete');
+  const q = query.trim().toLowerCase();
+  if (!q) { closeAC(); return; }
+
+  const matches = state.allTags
+    .filter(t => t.includes(q) && !currentTags.includes(t))
+    .slice(0, 8);
+
+  if (!matches.length) { closeAC(); return; }
+
+  dropdown.innerHTML = matches.map(tag =>
+    `<div class="ac-item" data-tag="${esc(tag)}">${esc(tag)}</div>`
+  ).join('');
+
+  dropdown.querySelectorAll('.ac-item').forEach(el => {
+    el.addEventListener('mousedown', () => {
+      addTag(el.dataset.tag);
+      document.getElementById('tag-input').value = '';
+      closeAC();
+    });
+  });
+
+  dropdown.classList.add('open');
+}
+
+function closeAC() {
+  document.getElementById('autocomplete').classList.remove('open');
+  acActiveIdx = -1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Navigation
+// ─────────────────────────────────────────────────────────────────────────────
+function goTo(newIndex) {
+  flushCoding();
+  state.currentIndex = newIndex;
+  saveState();
+  document.getElementById('tag-input').value = '';
+  closeAC();
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goPrev() { if (state.currentIndex > 0) goTo(state.currentIndex - 1); }
+function goNext() { if (state.currentIndex < SPEECH_ACTS.length - 1) goTo(state.currentIndex + 1); }
+
+function jumpTo() {
+  const val = parseInt(document.getElementById('jump-input').value);
+  if (isNaN(val)) return;
+  goTo(Math.max(0, Math.min(SPEECH_ACTS.length - 1, val - 1)));
+  document.getElementById('jump-input').value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Save to Google Sheets
+// ─────────────────────────────────────────────────────────────────────────────
+async function saveToSheets() {
+  flushCoding();
+  const row    = SPEECH_ACTS[state.currentIndex];
+  const coding = getCoding(row.id);
+
+  if (!state.sheetsUrl) {
+    setStatus('⚠ No Sheets URL set — click ⚙ Settings to add one.', 'err');
+    return;
+  }
+
+  const payload = {
+    id:          row.id,
+    company_name: row.company_name,
+    ticker:      row.ticker,
+    quarter:     row.quarter,
+    section:     row.section,
+    speaker:     row.speaker,
+    role:        row.role,
+    speech_act:  (row.speech_act || '').substring(0, 2000), // Sheets cell limit guard
+    codes:       coding.codes.join(', '),
+    pegah_notes: coding.notes,
+    timestamp:   new Date().toISOString(),
+  };
+
+  setStatus('Saving…', 'info');
+  try {
+    // no-cors avoids preflight; we can't read the response but the write succeeds
+    await fetch(state.sheetsUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    setStatus('✓ Saved to Sheets', 'ok');
+  } catch(err) {
+    setStatus('✗ Network error — check your URL in Settings.', 'err');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Download CSV (local backup of all codings)
+// ─────────────────────────────────────────────────────────────────────────────
+function downloadCSV() {
+  const headers = ['id','company_name','ticker','quarter','section','speaker','role','codes','pegah_notes','timestamp'];
+  const csvRows = Object.entries(state.codings).map(([id, coding]) => {
+    const row = SPEECH_ACTS.find(r => String(r.id) === String(id)) || {};
+    return [
+      id, row.company_name||'', row.ticker||'', row.quarter||'',
+      row.section||'', row.speaker||'', row.role||'',
+      coding.codes.join(', '), coding.notes, new Date().toISOString(),
+    ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+  });
+
+  const csv  = [headers.join(','), ...csvRows].join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: 'codings.csv' });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Status
+// ─────────────────────────────────────────────────────────────────────────────
+function setStatus(msg, type = 'info') {
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = `status-msg status-${type}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Settings modal
+// ─────────────────────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('sheets-url-input').value = state.sheetsUrl || '';
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+function saveSettings() {
+  state.sheetsUrl = document.getElementById('sheets-url-input').value.trim();
+  saveState();
+  closeSettings();
+  setStatus('Settings saved.', 'ok');
+}
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeSettings();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Keyboard shortcuts
+// ─────────────────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft')  goPrev();
+  if (e.key === 'ArrowRight') goNext();
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToSheets(); }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Password gate — PBKDF2-HMAC-SHA256 via WebCrypto
+// Salt and hash were generated offline; the plaintext password is never stored.
+// 200,000 iterations makes brute-force attacks computationally expensive.
+// ─────────────────────────────────────────────────────────────────────────────
+const PW_SALT = '084387738cf8eddb1ee6de993989599f';
+const PW_HASH = '9afc5b3bb399e7726c46253fffbdcf31ded53a574d05487682b61379e55c48cc';
+const AUTH_KEY = 'qualcoder_auth';
+
+function hexToBytes(hex) {
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < arr.length; i++)
+    arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return arr;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function deriveHash(password) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: hexToBytes(PW_SALT), iterations: 200000, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  return bytesToHex(new Uint8Array(bits));
+}
+
+async function checkPassword() {
+  const input = document.getElementById('pw-input');
+  const btn   = document.getElementById('pw-btn');
+  const error = document.getElementById('pw-error');
+
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  error.textContent = '';
+
+  try {
+    const hash = await deriveHash(input.value);
+    if (hash === PW_HASH) {
+      sessionStorage.setItem(AUTH_KEY, '1');
+      document.getElementById('pw-gate').classList.add('hidden');
+    } else {
+      error.textContent = 'Incorrect password. Please try again.';
+      input.value = '';
+      input.focus();
+    }
+  } catch(e) {
+    error.textContent = 'Error — WebCrypto not available in this browser.';
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Unlock';
+}
+
+function togglePwVisibility() {
+  const input = document.getElementById('pw-input');
+  input.type = input.type === 'password' ? 'text' : 'password';
+}
+
+// Allow Enter key to submit the password
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkPassword();
+});
+
+// On load: skip gate if already authenticated this session
+if (sessionStorage.getItem(AUTH_KEY) === '1') {
+  document.getElementById('pw-gate').classList.add('hidden');
+} else {
+  // Defer app init until after authentication
+  document.getElementById('pw-input').focus();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Wire everything up
+// ─────────────────────────────────────────────────────────────────────────────
+function setupEvents() {
+  setupTagInput();
+  document.getElementById('jump-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') jumpTo();
+  });
+}
+</script>
+</body>
+</html>
