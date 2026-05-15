@@ -332,6 +332,10 @@ textarea.notes-input:focus {
   .nav-group { justify-content: space-between; }
   .btn { justify-content: center; }
   .top-bar { flex-direction: column; align-items: flex-start; }
+  /* Prevent iOS Safari from zooming in when tapping inputs */
+  .tag-text-input, textarea.notes-input, .pw-input, .jump-input, .modal input[type=text] {
+    font-size: 16px !important;
+  }
 }
 </style>
 </head>
@@ -481,6 +485,7 @@ let state = {
   currentIndex: 0,
   codings: {},    // row id → { codes: string[], notes: string }
   allTags: [],    // sorted list of every tag ever used — drives autocomplete
+  dirtyIds: [],   // ids modified since last Save All
   sheetsUrl: '',
 };
 
@@ -521,6 +526,8 @@ function getCoding(id) {
 
 function setCoding(id, codes, notes) {
   state.codings[id] = { codes: [...codes], notes };
+  // Mark as dirty so Save All picks it up
+  if (!state.dirtyIds.includes(id)) state.dirtyIds.push(id);
   // Merge new tags into the master tag list for autocomplete
   codes.forEach(tag => {
     if (tag && !state.allTags.includes(tag)) state.allTags.push(tag);
@@ -595,6 +602,12 @@ function render() {
 
   // Clear status
   setStatus('');
+
+  // Auto-focus the codes input so you can start typing immediately.
+  // Skipped on touch devices to avoid popping up the keyboard on every navigation.
+  if (window.matchMedia('(hover: hover)').matches) {
+    setTimeout(focusTagInput, 50);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -618,28 +631,45 @@ function highlightKeywords(text, row) {
   CATEGORIES.forEach(cat => {
     if (row[`${cat.key}_by_keywords`] && row[`${cat.key}_keyword`]) {
       String(row[`${cat.key}_keyword`])
-        .split(',')
-        .map(k => k.trim())
-        .filter(k => k.length > 0)
+        .split(',').map(k => k.trim()).filter(k => k.length > 0)
         .forEach(kw => pairs.push({ kw, cls: `kw-${cat.cls}` }));
     }
   });
 
-  // HTML-escape the source text first (keywords are plain words — safe to match after)
-  let result = esc(text);
-  if (pairs.length === 0) return result;
+  if (pairs.length === 0) return esc(text);
 
-  // Sort longest-first to prevent partial overlaps
-  pairs.sort((a, b) => b.kw.length - a.kw.length);
-
+  // Find all match positions in the ORIGINAL (unescaped) text.
+  // This avoids any risk of the regex matching inside generated HTML tag attributes.
+  const matches = [];
   pairs.forEach(({ kw, cls }) => {
-    const re = new RegExp(escRe(esc(kw)), 'gi');
-    // Guard against double-wrapping already-marked text
-    result = result.replace(re, match =>
-      match.startsWith('<mark') ? match : `<mark class="${cls}">${match}</mark>`
-    );
+    const re = new RegExp(escRe(kw), 'gi');
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      matches.push({ start: m.index, end: m.index + m[0].length, cls, raw: m[0] });
+    }
   });
 
+  if (matches.length === 0) return esc(text);
+
+  // Sort by start position; prefer longer matches on ties
+  matches.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+  // Remove overlapping matches (keep the first / longest)
+  const kept = [];
+  let lastEnd = 0;
+  for (const m of matches) {
+    if (m.start >= lastEnd) { kept.push(m); lastEnd = m.end; }
+  }
+
+  // Build the final HTML string from the original text slices + mark tags
+  let result = '';
+  let pos = 0;
+  for (const m of kept) {
+    result += esc(text.slice(pos, m.start));
+    result += `<mark class="${m.cls}">${esc(m.raw)}</mark>`;
+    pos = m.end;
+  }
+  result += esc(text.slice(pos));
   return result;
 }
 
@@ -885,9 +915,11 @@ async function saveAllToSheets() {
     return;
   }
 
-  const entries = Object.entries(state.codings);
+  // Only send entries that have changed since the last Save All
+  const dirtySet = new Set(state.dirtyIds.map(String));
+  const entries = Object.entries(state.codings).filter(([id]) => dirtySet.has(String(id)));
   if (entries.length === 0) {
-    setStatus('No codings saved yet.', 'info');
+    setStatus('Nothing new to save — all codings already in Sheets.', 'info');
     return;
   }
 
@@ -925,6 +957,9 @@ async function saveAllToSheets() {
         body: JSON.stringify({ ...payload, secret: SECRET }),
       });
       sent++;
+      // Remove from dirty list on success
+      state.dirtyIds = state.dirtyIds.filter(d => String(d) !== String(id));
+      saveState();
     } catch(e) {
       failed++;
     }
@@ -1004,8 +1039,10 @@ document.getElementById('settings-modal').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  if (e.key === 'ArrowLeft')  goPrev();
-  if (e.key === 'ArrowRight') goNext();
+  if (e.key === 'ArrowLeft'  && !e.metaKey && !e.ctrlKey) goPrev();
+  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) goNext();
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToSheets(); }
 });
 
