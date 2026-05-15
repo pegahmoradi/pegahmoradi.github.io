@@ -373,6 +373,7 @@ textarea.notes-input:focus {
       <input type="number" class="jump-input" id="jump-input" min="1" placeholder="#">
       <button class="btn btn-secondary btn-sm" onclick="jumpTo()">Go</button>
     </div>
+    <button class="btn btn-ghost btn-sm" id="sync-btn" onclick="syncFromSheets(false)">⟳ Sync from Sheets</button>
     <button class="btn btn-ghost btn-sm" onclick="downloadCSV()">⬇ Download CSV</button>
   </div>
 
@@ -462,6 +463,8 @@ textarea.notes-input:focus {
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'qualcoder_v1';
+const SHEETS_URL  = 'https://script.google.com/macros/s/AKfycbxGVSwOZQT8c-k3yVIHWbs0-Lj-WMFvFUPRLEecESh_Wm3cE5yP7ABKZIG5BUpADFeJ/exec';
+const SECRET      = '7968f8d10b24bb5c10c716733d19a62620e0adf305865865';
 
 const CATEGORIES = [
   { key: 'CRIME',       label: 'Crime',        cls: 'crime'       },
@@ -488,7 +491,9 @@ window.addEventListener('DOMContentLoaded', () => {
   loadState();
   render();
   setupEvents();
-  if (!state.sheetsUrl) setTimeout(openSettings, 500);
+  if (Object.keys(state.codings).length === 0) {
+    syncFromSheets(true);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -794,7 +799,7 @@ async function saveToSheets() {
   const row    = SPEECH_ACTS[state.currentIndex];
   const coding = getCoding(row.id);
 
-  if (!state.sheetsUrl) {
+  if (!SHEETS_URL) {
     setStatus('⚠ No Sheets URL set — click ⚙ Settings to add one.', 'err');
     return;
   }
@@ -818,11 +823,11 @@ async function saveToSheets() {
     // no-cors avoids preflight; we can't read the response but the write succeeds
     // Content-Type must be text/plain for no-cors mode —
     // application/json triggers a preflight that no-cors blocks silently.
-    await fetch(state.sheetsUrl, {
+    await fetch(SHEETS_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, secret: SECRET }),
     });
     setStatus('✓ Saved to Sheets', 'ok');
   } catch(err) {
@@ -831,12 +836,51 @@ async function saveToSheets() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sync FROM Sheets → loads all codings into localStorage
+// ─────────────────────────────────────────────────────────────────────────────
+async function syncFromSheets(silent) {
+  const btn = document.getElementById('sync-btn');
+  if (btn) btn.disabled = true;
+  if (!silent) setStatus('Syncing from Sheets…', 'info');
+
+  try {
+    const res  = await fetch(SHEETS_URL + '?secret=' + SECRET, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'Unauthorized');
+
+    json.codings.forEach(entry => {
+      state.codings[entry.id] = { codes: entry.codes, notes: entry.pegah_notes };
+      entry.codes.forEach(tag => {
+        if (tag && !state.allTags.includes(tag)) state.allTags.push(tag);
+      });
+    });
+    state.allTags.sort();
+
+    if (json.position != null) {
+      state.currentIndex = Math.max(0, Math.min(json.position, SPEECH_ACTS.length - 1));
+    }
+
+    saveState();
+    render();
+
+    const count = json.codings.length;
+    if (!silent) setStatus(`✓ Synced ${count} coding${count !== 1 ? 's' : ''} from Sheets`, 'ok');
+    else if (count > 0) setStatus(`✓ Loaded ${count} saved coding${count !== 1 ? 's' : ''} from Sheets`, 'ok');
+
+  } catch(err) {
+    if (!silent) setStatus('✗ Sync failed: ' + err.message, 'err');
+  }
+
+  if (btn) btn.disabled = false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Save ALL codings to Sheets (loops through everything in localStorage)
 // ─────────────────────────────────────────────────────────────────────────────
 async function saveAllToSheets() {
   flushCoding();
 
-  if (!state.sheetsUrl) {
+  if (!SHEETS_URL) {
     setStatus('⚠ No Sheets URL set — click ⚙ Settings to add one.', 'err');
     return;
   }
@@ -874,17 +918,26 @@ async function saveAllToSheets() {
     setStatus(`Saving… ${sent + 1} / ${entries.length}`, 'info');
 
     try {
-      await fetch(state.sheetsUrl, {
+      await fetch(SHEETS_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, secret: SECRET }),
       });
       sent++;
     } catch(e) {
       failed++;
     }
   }
+
+  // Save current position so other devices resume in the right place
+  try {
+    await fetch(SHEETS_URL, {
+      method: 'POST', mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ id: '_position', codes: state.currentIndex, pegah_notes: '', timestamp: new Date().toISOString(), secret: SECRET }),
+    });
+  } catch(e) {}
 
   btn.disabled = false;
   if (failed === 0) {
@@ -929,14 +982,14 @@ function setStatus(msg, type = 'info') {
 // Settings modal
 // ─────────────────────────────────────────────────────────────────────────────
 function openSettings() {
-  document.getElementById('sheets-url-input').value = state.sheetsUrl || '';
+  document.getElementById('sheets-url-input').value = SHEETS_URL || '';
   document.getElementById('settings-modal').classList.add('open');
 }
 function closeSettings() {
   document.getElementById('settings-modal').classList.remove('open');
 }
 function saveSettings() {
-  state.sheetsUrl = document.getElementById('sheets-url-input').value.trim();
+  SHEETS_URL = document.getElementById('sheets-url-input').value.trim();
   saveState();
   closeSettings();
   setStatus('Settings saved.', 'ok');
