@@ -603,11 +603,6 @@ function render() {
   // Clear status
   setStatus('');
 
-  // Auto-focus the codes input so you can start typing immediately.
-  // Skipped on touch devices to avoid popping up the keyboard on every navigation.
-  if (window.matchMedia('(hover: hover)').matches) {
-    setTimeout(focusTagInput, 50);
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -809,6 +804,8 @@ function goTo(newIndex) {
   closeAC();
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+  // Focus directly in the event handler (not in setTimeout) so Firefox allows it
+  if (window.matchMedia('(hover: hover)').matches) focusTagInput();
 }
 
 function goPrev() { if (state.currentIndex > 0) goTo(state.currentIndex - 1); }
@@ -1092,6 +1089,7 @@ async function checkPassword() {
     if (hash === PW_HASH) {
       sessionStorage.setItem(AUTH_KEY, '1');
       document.getElementById('pw-gate').classList.add('hidden');
+      if (window.matchMedia('(hover: hover)').matches) focusTagInput();
     } else {
       error.textContent = 'Incorrect password. Please try again.';
       input.value = '';
@@ -1118,6 +1116,7 @@ document.getElementById('pw-input').addEventListener('keydown', e => {
 // On load: skip gate if already authenticated this session
 if (sessionStorage.getItem(AUTH_KEY) === '1') {
   document.getElementById('pw-gate').classList.add('hidden');
+  if (window.matchMedia('(hover: hover)').matches) focusTagInput();
 } else {
   // Defer app init until after authentication
   document.getElementById('pw-input').focus();
