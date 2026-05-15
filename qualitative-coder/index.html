@@ -430,8 +430,7 @@ textarea.notes-input:focus {
           <button class="btn btn-secondary" id="prev-btn" onclick="goPrev()">← Prev</button>
           <button class="btn btn-secondary" id="next-btn" onclick="goNext()">Next →</button>
         </div>
-        <button class="btn btn-primary" onclick="saveToSheets()">↑ Save to Sheets</button>
-        <button class="btn btn-secondary" id="save-all-btn" onclick="saveAllToSheets()">↑ Save All</button>
+        <button class="btn btn-primary" id="save-all-btn" onclick="saveAllToSheets()">↑ Save All</button>
       </div>
       <div class="status-msg status-info" id="status-msg"></div>
     </div>
@@ -443,7 +442,7 @@ textarea.notes-input:focus {
 <div class="modal-overlay" id="settings-modal">
   <div class="modal">
     <h2>⚙ Settings</h2>
-    <p>Paste your Google Apps Script Web App URL. Each time you click "Save to Sheets," the current row's codes and notes are sent there.</p>
+    <p>Paste your Google Apps Script Web App URL. Click "Save All" to sync all changed rows to Sheets.</p>
     <input type="text" id="sheets-url-input" placeholder="https://script.google.com/macros/s/…/exec">
     <hr>
     <p><strong>First-time setup</strong></p>
@@ -1044,7 +1043,7 @@ document.addEventListener('keydown', e => {
   // Cmd/Ctrl+Arrow works everywhere (even when a text box is focused)
   if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
   if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToSheets(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAllToSheets(); return; }
   // Plain arrow keys only when not typing
   if (inInput) return;
   if (e.key === 'ArrowLeft')  goPrev();
