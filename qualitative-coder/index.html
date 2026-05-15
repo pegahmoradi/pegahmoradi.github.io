@@ -723,6 +723,11 @@ function setupTagInput() {
     const items = dropdown.querySelectorAll('.ac-item');
     const active = dropdown.querySelector('.ac-item.active');
 
+    // Cmd/Ctrl+Arrow must be caught here (on the element) not just on document,
+    // because the browser handles cursor-movement shortcuts before bubbling.
+    if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+
     if (e.key === 'Tab' || e.key === ',') {
       e.preventDefault();
       addTag(active ? active.dataset.tag : val);
