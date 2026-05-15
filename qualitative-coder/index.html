@@ -804,8 +804,9 @@ function goTo(newIndex) {
   closeAC();
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  // Focus directly in the event handler (not in setTimeout) so Firefox allows it
-  if (window.matchMedia('(hover: hover)').matches) focusTagInput();
+  // rAF defers until after the browser's own post-click focus management,
+  // so the tag input wins focus whether triggered by keyboard or button click.
+  if (window.matchMedia('(hover: hover)').matches) requestAnimationFrame(focusTagInput);
 }
 
 function goPrev() { if (state.currentIndex > 0) goTo(state.currentIndex - 1); }
@@ -1034,13 +1035,15 @@ document.getElementById('settings-modal').addEventListener('click', e => {
 // Keyboard shortcuts
 // ─────────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  const tag = document.activeElement.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  if (e.key === 'ArrowLeft'  && !e.metaKey && !e.ctrlKey) goPrev();
-  if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) goNext();
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); }
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToSheets(); }
+  const inInput = document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA';
+  // Cmd/Ctrl+Arrow works everywhere (even when a text box is focused)
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToSheets(); return; }
+  // Plain arrow keys only when not typing
+  if (inInput) return;
+  if (e.key === 'ArrowLeft')  goPrev();
+  if (e.key === 'ArrowRight') goNext();
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
