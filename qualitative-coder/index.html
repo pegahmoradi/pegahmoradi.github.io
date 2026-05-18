@@ -256,7 +256,7 @@ textarea.notes-input:focus {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
   background: white; border: 1.5px solid var(--border);
   border-radius: 7px; box-shadow: var(--shadow-md);
-  z-index: 50; max-height: 210px; overflow-y: auto;
+  z-index: 50; max-height: 320px; overflow-y: auto;
   display: none;
 }
 .autocomplete-dropdown.open { display: block; }
@@ -266,6 +266,14 @@ textarea.notes-input:focus {
 .ac-item:hover, .ac-item.active {
   background: var(--accent-light); color: var(--accent);
 }
+.ac-item { display: flex; align-items: center; justify-content: space-between; }
+.ac-label { flex: 1; }
+.ac-delete {
+  padding: 0 4px; font-size: 11px; opacity: 0; color: var(--text-muted);
+  cursor: pointer; transition: opacity .1s;
+}
+.ac-item:hover .ac-delete { opacity: 0.6; }
+.ac-delete:hover { opacity: 1 !important; }
 
 /* ── Buttons ── */
 .btn {
@@ -773,19 +781,27 @@ function updateAC(query) {
 
   const matches = state.allTags
     .filter(t => t.includes(q) && !currentTags.includes(t))
-    .slice(0, 8);
+    .slice(0, 20);
 
   if (!matches.length) { closeAC(); return; }
 
   dropdown.innerHTML = matches.map(tag =>
-    `<div class="ac-item" data-tag="${esc(tag)}">${esc(tag)}</div>`
+    `<div class="ac-item" data-tag="${esc(tag)}">
+      <span class="ac-label">${esc(tag)}</span>
+      <span class="ac-delete" data-tag="${esc(tag)}" title="Remove from suggestions">✕</span>
+    </div>`
   ).join('');
 
   dropdown.querySelectorAll('.ac-item').forEach(el => {
-    el.addEventListener('mousedown', () => {
+    el.querySelector('.ac-label').addEventListener('mousedown', () => {
       addTag(el.dataset.tag);
       document.getElementById('tag-input').value = '';
       closeAC();
+    });
+    el.querySelector('.ac-delete').addEventListener('mousedown', e => {
+      e.stopPropagation();
+      removeFromAllTags(el.dataset.tag);
+      updateAC(document.getElementById('tag-input').value);
     });
   });
 
@@ -797,14 +813,21 @@ function closeAC() {
   acActiveIdx = -1;
 }
 
+function removeFromAllTags(tag) {
+  state.allTags = state.allTags.filter(t => t !== tag);
+  saveState();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Navigation
 // ─────────────────────────────────────────────────────────────────────────────
 function goTo(newIndex) {
+  const input = document.getElementById('tag-input');
+  if (input.value.trim()) addTag(input.value);
   flushCoding();
   state.currentIndex = newIndex;
   saveState();
-  document.getElementById('tag-input').value = '';
+  input.value = '';
   closeAC();
   render();
   window.scrollTo({ top: 0, behavior: 'smooth' });
