@@ -256,7 +256,7 @@ textarea.notes-input:focus {
   position: fixed;
   background: white; border: 1.5px solid var(--border);
   border-radius: 7px; box-shadow: var(--shadow-md);
-  z-index: 1000; max-height: 320px; overflow-y: auto;
+  z-index: 1000; max-height: 320px; overflow-y: scroll;
   display: none;
 }
 .autocomplete-dropdown.open { display: block; }
@@ -779,9 +779,11 @@ function positionAC() {
   const input    = document.getElementById('tag-input');
   const dropdown = document.getElementById('autocomplete');
   const rect     = input.getBoundingClientRect();
-  dropdown.style.top   = (rect.bottom + 4) + 'px';
-  dropdown.style.left  = rect.left + 'px';
-  dropdown.style.width = rect.width + 'px';
+  const spaceBelow = window.innerHeight - rect.bottom - 8;
+  dropdown.style.top       = (rect.bottom + 4) + 'px';
+  dropdown.style.left      = rect.left + 'px';
+  dropdown.style.width     = rect.width + 'px';
+  dropdown.style.maxHeight = Math.min(320, spaceBelow) + 'px';
 }
 
 function updateAC(query) {
