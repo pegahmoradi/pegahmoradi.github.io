@@ -730,10 +730,10 @@ function setupTagInput() {
     const items = dropdown.querySelectorAll('.ac-item');
     const active = dropdown.querySelector('.ac-item.active');
 
-    // Cmd/Ctrl+Arrow must be caught here (on the element) not just on document,
-    // because the browser handles cursor-movement shortcuts before bubbling.
-    if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
-    if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+    // Cmd+Option+Arrow caught here (element level) AND on document — only one fires
+    // because the element handler returns early, preventing bubbling via goNext/goPrev.
+    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
 
     if (e.key === 'Tab' || e.key === ',') {
       e.preventDefault();
@@ -1063,9 +1063,9 @@ document.getElementById('settings-modal').addEventListener('click', e => {
 // ─────────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   const inInput = document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA';
-  // Cmd/Ctrl+Arrow works everywhere (even when a text box is focused)
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
-  if ((e.metaKey || e.ctrlKey) && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+  // Cmd+Option+Arrow works everywhere (even when a text box is focused)
+  if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
+  if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAllToSheets(); return; }
   // Plain arrow keys only when not typing
   if (inInput) return;
