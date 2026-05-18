@@ -437,6 +437,7 @@ textarea.notes-input:focus {
         <div class="nav-group">
           <button class="btn btn-secondary" id="prev-btn" onclick="goPrev()">← Prev</button>
           <button class="btn btn-secondary" id="next-btn" onclick="goNext()">Next →</button>
+          <button class="btn btn-secondary" onclick="goNextUncoded()">Next Uncoded</button>
         </div>
         <button class="btn btn-primary" id="save-all-btn" onclick="saveAllToSheets()">↑ Save All</button>
       </div>
@@ -838,6 +839,14 @@ function goTo(newIndex) {
 
 function goPrev() { if (state.currentIndex > 0) goTo(state.currentIndex - 1); }
 function goNext() { if (state.currentIndex < SPEECH_ACTS.length - 1) goTo(state.currentIndex + 1); }
+
+function goNextUncoded() {
+  for (let i = state.currentIndex + 1; i < SPEECH_ACTS.length; i++) {
+    const c = state.codings[String(SPEECH_ACTS[i].id)];
+    if (!c || !c.codes || c.codes.length === 0) { goTo(i); return; }
+  }
+  showStatus('No uncoded items after this point.', 'info');
+}
 
 function jumpTo() {
   const val = parseInt(document.getElementById('jump-input').value);
