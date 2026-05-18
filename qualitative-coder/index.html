@@ -725,6 +725,8 @@ function flushCoding() {
 function setupTagInput() {
   const input    = document.getElementById('tag-input');
   const dropdown = document.getElementById('autocomplete');
+  // Move dropdown to <body> so no ancestor overflow:hidden can ever clip it
+  document.body.appendChild(dropdown);
 
   input.addEventListener('keydown', e => {
     const val   = input.value;
