@@ -253,10 +253,10 @@ textarea.notes-input:focus {
 /* ── Autocomplete ── */
 .autocomplete-wrap { position: relative; }
 .autocomplete-dropdown {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  position: fixed;
   background: white; border: 1.5px solid var(--border);
   border-radius: 7px; box-shadow: var(--shadow-md);
-  z-index: 50; max-height: 320px; overflow-y: auto;
+  z-index: 1000; max-height: 320px; overflow-y: auto;
   display: none;
 }
 .autocomplete-dropdown.open { display: block; }
@@ -731,10 +731,8 @@ function setupTagInput() {
     const items = dropdown.querySelectorAll('.ac-item');
     const active = dropdown.querySelector('.ac-item.active');
 
-    // Cmd+Option+Arrow caught here (element level) AND on document — only one fires
-    // because the element handler returns early, preventing bubbling via goNext/goPrev.
-    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
-    if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') { e.preventDefault(); goNext(); return; }
+    if ((e.metaKey || e.ctrlKey) &&  e.shiftKey && e.key === 'i') { e.preventDefault(); goPrev(); return; }
 
     if (e.key === 'Tab' || e.key === ',') {
       e.preventDefault();
@@ -775,6 +773,15 @@ function setupTagInput() {
   document.getElementById('notes-input').addEventListener('input', flushCoding);
 }
 
+function positionAC() {
+  const input    = document.getElementById('tag-input');
+  const dropdown = document.getElementById('autocomplete');
+  const rect     = input.getBoundingClientRect();
+  dropdown.style.top   = (rect.bottom + 4) + 'px';
+  dropdown.style.left  = rect.left + 'px';
+  dropdown.style.width = rect.width + 'px';
+}
+
 function updateAC(query) {
   const dropdown = document.getElementById('autocomplete');
   const q = query.trim().toLowerCase();
@@ -806,6 +813,7 @@ function updateAC(query) {
     });
   });
 
+  positionAC();
   dropdown.classList.add('open');
 }
 
@@ -949,7 +957,6 @@ async function saveAllToSheets() {
     return;
   }
 
-  // Only send entries that have changed since the last Save All
   const dirtySet = new Set(state.dirtyIds.map(String));
   const entries = Object.entries(state.codings).filter(([id]) => dirtySet.has(String(id)));
   if (entries.length === 0) {
@@ -959,15 +966,12 @@ async function saveAllToSheets() {
 
   const btn = document.getElementById('save-all-btn');
   btn.disabled = true;
+  setStatus(`Saving ${entries.length} codings…`, 'info');
 
-  let sent = 0;
-  let failed = 0;
-
-  for (const [id, coding] of entries) {
+  const rows = entries.map(([id, coding]) => {
     const row = SPEECH_ACTS.find(r => String(r.id) === String(id));
-    if (!row) continue;
-
-    const payload = {
+    if (!row) return null;
+    return {
       id:           row.id,
       company_name: row.company_name,
       ticker:       row.ticker,
@@ -980,40 +984,26 @@ async function saveAllToSheets() {
       pegah_notes:  coding.notes,
       timestamp:    new Date().toISOString(),
     };
+  }).filter(Boolean);
 
-    setStatus(`Saving… ${sent + 1} / ${entries.length}`, 'info');
+  // Append position row so other devices resume in the right place
+  rows.push({ id: '_position', codes: state.currentIndex, pegah_notes: '', timestamp: new Date().toISOString() });
 
-    try {
-      await fetch(SHEETS_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ ...payload, secret: SECRET }),
-      });
-      sent++;
-      // Remove from dirty list on success
-      state.dirtyIds = state.dirtyIds.filter(d => String(d) !== String(id));
-      saveState();
-    } catch(e) {
-      failed++;
-    }
-  }
-
-  // Save current position so other devices resume in the right place
   try {
     await fetch(SHEETS_URL, {
-      method: 'POST', mode: 'no-cors',
+      method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ id: '_position', codes: state.currentIndex, pegah_notes: '', timestamp: new Date().toISOString(), secret: SECRET }),
+      body: JSON.stringify({ secret: SECRET, rows }),
     });
-  } catch(e) {}
+    state.dirtyIds = [];
+    saveState();
+    setStatus(`✓ Saved ${rows.length - 1} codings to Sheets`, 'ok');
+  } catch(e) {
+    setStatus('✗ Save failed: ' + e.message, 'err');
+  }
 
   btn.disabled = false;
-  if (failed === 0) {
-    setStatus(`✓ Saved all ${sent} codings to Sheets`, 'ok');
-  } else {
-    setStatus(`✓ ${sent} saved, ✗ ${failed} failed — try again`, 'err');
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1072,9 +1062,9 @@ document.getElementById('settings-modal').addEventListener('click', e => {
 // ─────────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   const inInput = document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA';
-  // Cmd+Option+Arrow works everywhere (even when a text box is focused)
-  if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goNext(); return; }
-  if ((e.metaKey || e.ctrlKey) && e.altKey && e.key === 'ArrowLeft')  { e.preventDefault(); goPrev(); return; }
+  // Cmd+I = next, Cmd+Shift+I = prev — works everywhere including text boxes
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') { e.preventDefault(); goNext(); return; }
+  if ((e.metaKey || e.ctrlKey) &&  e.shiftKey && e.key === 'i') { e.preventDefault(); goPrev(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAllToSheets(); return; }
   // Plain arrow keys only when not typing
   if (inInput) return;

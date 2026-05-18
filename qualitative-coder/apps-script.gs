@@ -66,7 +66,7 @@ function doGet(e) {
   }
 }
 
-// doPost — writes or updates a single coding row
+// doPost — writes or updates a batch of rows in one request
 function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
@@ -83,26 +83,29 @@ function doPost(e) {
       SpreadsheetApp.flush();
     }
 
-    var newRow = HEADERS.map(function(h) {
-      return data[h] !== undefined ? data[h] : '';
-    });
+    // Support both a batch array (rows) and a single row (legacy)
+    var rows = data.rows ? data.rows : [data];
 
-    // Check whether a row with this id already exists; if so, update it
+    // Read all existing ids once for efficient upserts
     var values   = sheet.getDataRange().getValues();
     var idColIdx = HEADERS.indexOf('id');
-    var foundRow = -1;
-
+    var idToRowNum = {};
     for (var i = 1; i < values.length; i++) {
-      if (String(values[i][idColIdx]) === String(data.id)) {
-        foundRow = i + 1; // Sheets rows are 1-indexed
-        break;
-      }
+      idToRowNum[String(values[i][idColIdx])] = i + 1; // 1-indexed
     }
 
-    if (foundRow > 0) {
-      sheet.getRange(foundRow, 1, 1, newRow.length).setValues([newRow]);
-    } else {
-      sheet.appendRow(newRow);
+    for (var r = 0; r < rows.length; r++) {
+      var item   = rows[r];
+      var newRow = HEADERS.map(function(h) {
+        return item[h] !== undefined ? item[h] : '';
+      });
+      var existing = idToRowNum[String(item.id)];
+      if (existing) {
+        sheet.getRange(existing, 1, 1, newRow.length).setValues([newRow]);
+      } else {
+        sheet.appendRow(newRow);
+        idToRowNum[String(item.id)] = sheet.getLastRow();
+      }
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
