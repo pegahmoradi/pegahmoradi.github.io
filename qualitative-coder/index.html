@@ -733,8 +733,8 @@ function setupTagInput() {
     const items = dropdown.querySelectorAll('.ac-item');
     const active = dropdown.querySelector('.ac-item.active');
 
-    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') { e.preventDefault(); goNext(); return; }
-    if ((e.metaKey || e.ctrlKey) &&  e.shiftKey && e.key === 'i') { e.preventDefault(); goPrev(); return; }
+    if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') { e.preventDefault(); e.stopPropagation(); goNext(); return; }
+    if ((e.metaKey || e.ctrlKey) &&  e.shiftKey && e.key === 'i') { e.preventDefault(); e.stopPropagation(); goPrev(); return; }
 
     if (e.key === 'Tab' || e.key === ',') {
       e.preventDefault();
@@ -1066,9 +1066,16 @@ document.getElementById('settings-modal').addEventListener('click', e => {
 // ─────────────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   const inInput = document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA';
-  // Cmd+I = next, Cmd+Shift+I = prev — works everywhere including text boxes
-  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') { e.preventDefault(); goNext(); return; }
-  if ((e.metaKey || e.ctrlKey) &&  e.shiftKey && e.key === 'i') { e.preventDefault(); goPrev(); return; }
+  // Cmd+I = next, Cmd+Shift+I = prev — only when focus is NOT in the tag input
+  // (when tag input is focused, the element-level handler fires instead)
+  if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'i') {
+    if (document.activeElement.id !== 'tag-input') { e.preventDefault(); goNext(); }
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'i') {
+    if (document.activeElement.id !== 'tag-input') { e.preventDefault(); goPrev(); }
+    return;
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveAllToSheets(); return; }
   // Plain arrow keys only when not typing
   if (inInput) return;
