@@ -512,11 +512,44 @@ window.addEventListener('DOMContentLoaded', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Persistence (localStorage)
 // ─────────────────────────────────────────────────────────────────────────────
+// Compound key: ticker + numeric id — guarantees uniqueness across companies
+function rowKey(row) { return row.ticker + '_' + row.id; }
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) Object.assign(state, JSON.parse(raw));
-    // Clamp index in case dataset changed
+
+    // Migrate old plain-numeric-id keys to compound ticker_id keys.
+    // A purely numeric key is old format; anything else is already migrated.
+    const idToRow = {};
+    const ambiguous = new Set();
+    SPEECH_ACTS.forEach(r => {
+      const k = String(r.id);
+      if (idToRow[k]) ambiguous.add(k);
+      else idToRow[k] = r;
+    });
+    const newCodings = {};
+    Object.entries(state.codings).forEach(([key, val]) => {
+      if (/^\d+$/.test(key)) {
+        // Old plain-id key — migrate only if unambiguous
+        if (!ambiguous.has(key) && idToRow[key]) {
+          newCodings[rowKey(idToRow[key])] = val;
+        }
+        // Ambiguous old keys (two companies shared this id) are dropped —
+        // they were already surfacing the wrong coding due to the collision bug.
+      } else {
+        newCodings[key] = val;
+      }
+    });
+    state.codings = newCodings;
+    state.dirtyIds = state.dirtyIds.map(id => {
+      const key = String(id);
+      if (!/^\d+$/.test(key)) return key;
+      if (!ambiguous.has(key) && idToRow[key]) return rowKey(idToRow[key]);
+      return null;
+    }).filter(Boolean);
+
     state.currentIndex = Math.max(0, Math.min(state.currentIndex, SPEECH_ACTS.length - 1));
   } catch(e) { /* fresh start */ }
 }
@@ -526,16 +559,16 @@ function saveState() {
 }
 
 // Return saved coding for this row; pre-fill notes from original data if unsaved
-function getCoding(id) {
-  if (state.codings[id]) return state.codings[id];
-  const row = SPEECH_ACTS.find(r => r.id === id);
+function getCoding(key) {
+  if (state.codings[key]) return state.codings[key];
+  const row = SPEECH_ACTS.find(r => rowKey(r) === key);
   return { codes: [], notes: row?.pegah_notes || '' };
 }
 
-function setCoding(id, codes, notes) {
-  state.codings[id] = { codes: [...codes], notes };
+function setCoding(key, codes, notes) {
+  state.codings[key] = { codes: [...codes], notes };
   // Mark as dirty so Save All picks it up
-  if (!state.dirtyIds.includes(id)) state.dirtyIds.push(id);
+  if (!state.dirtyIds.includes(key)) state.dirtyIds.push(key);
   // Merge new tags into the master tag list for autocomplete
   codes.forEach(tag => {
     if (tag && !state.allTags.includes(tag)) state.allTags.push(tag);
@@ -550,7 +583,7 @@ function setCoding(id, codes, notes) {
 function render() {
   const row    = SPEECH_ACTS[state.currentIndex];
   const total  = SPEECH_ACTS.length;
-  const coding = getCoding(row.id);
+  const coding = getCoding(rowKey(row));
 
   // Progress
   document.getElementById('progress-text').textContent = `${state.currentIndex + 1} / ${total}`;
@@ -719,7 +752,7 @@ function removeTag(idx) {
 function flushCoding() {
   const row   = SPEECH_ACTS[state.currentIndex];
   const notes = document.getElementById('notes-input').value;
-  setCoding(row.id, currentTags, notes);
+  setCoding(rowKey(row), currentTags, notes);
 }
 
 function setupTagInput() {
@@ -854,7 +887,7 @@ function goNext() { if (state.currentIndex < SPEECH_ACTS.length - 1) goTo(state.
 
 function goNextUncoded() {
   for (let i = state.currentIndex + 1; i < SPEECH_ACTS.length; i++) {
-    const c = state.codings[String(SPEECH_ACTS[i].id)];
+    const c = state.codings[rowKey(SPEECH_ACTS[i])];
     if (!c || !c.codes || c.codes.length === 0) { goTo(i); return; }
   }
   showStatus('No uncoded items after this point.', 'info');
@@ -873,7 +906,7 @@ function jumpTo() {
 async function saveToSheets() {
   flushCoding();
   const row    = SPEECH_ACTS[state.currentIndex];
-  const coding = getCoding(row.id);
+  const coding = getCoding(rowKey(row));
 
   if (!SHEETS_URL) {
     setStatus('⚠ No Sheets URL set — click ⚙ Settings to add one.', 'err');
@@ -925,7 +958,8 @@ async function syncFromSheets(silent) {
     if (json.status !== 'ok') throw new Error(json.message || 'Unauthorized');
 
     json.codings.forEach(entry => {
-      state.codings[entry.id] = { codes: entry.codes, notes: entry.pegah_notes };
+      const key = entry.ticker ? entry.ticker + '_' + entry.id : String(entry.id);
+      state.codings[key] = { codes: entry.codes, notes: entry.pegah_notes };
       entry.codes.forEach(tag => {
         if (tag && !state.allTags.includes(tag)) state.allTags.push(tag);
       });
@@ -972,8 +1006,8 @@ async function saveAllToSheets() {
   btn.disabled = true;
   setStatus(`Saving ${entries.length} codings…`, 'info');
 
-  const rows = entries.map(([id, coding]) => {
-    const row = SPEECH_ACTS.find(r => String(r.id) === String(id));
+  const rows = entries.map(([key, coding]) => {
+    const row = SPEECH_ACTS.find(r => rowKey(r) === key);
     if (!row) return null;
     return {
       id:           row.id,
@@ -1015,8 +1049,8 @@ async function saveAllToSheets() {
 // ─────────────────────────────────────────────────────────────────────────────
 function downloadCSV() {
   const headers = ['id','company_name','ticker','quarter','section','speaker','role','codes','pegah_notes','timestamp'];
-  const csvRows = Object.entries(state.codings).map(([id, coding]) => {
-    const row = SPEECH_ACTS.find(r => String(r.id) === String(id)) || {};
+  const csvRows = Object.entries(state.codings).map(([key, coding]) => {
+    const row = SPEECH_ACTS.find(r => rowKey(r) === key) || {};
     return [
       id, row.company_name||'', row.ticker||'', row.quarter||'',
       row.section||'', row.speaker||'', row.role||'',

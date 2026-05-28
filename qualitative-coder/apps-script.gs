@@ -37,6 +37,7 @@ function doGet(e) {
 
     var headers     = values[0];
     var idIdx       = headers.indexOf('id');
+    var tickerIdx   = headers.indexOf('ticker');
     var codesIdx    = headers.indexOf('codes');
     var notesIdx    = headers.indexOf('pegah_notes');
 
@@ -52,6 +53,7 @@ function doGet(e) {
       if (row[idIdx] === '' || row[idIdx] === null) continue;
       codings.push({
         id:          String(row[idIdx]),
+        ticker:      String(row[tickerIdx] || ''),
         codes:       String(row[codesIdx] || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean),
         pegah_notes: String(row[notesIdx] || ''),
       });
@@ -86,12 +88,18 @@ function doPost(e) {
     // Support both a batch array (rows) and a single row (legacy)
     var rows = data.rows ? data.rows : [data];
 
-    // Read all existing ids once for efficient upserts
-    var values   = sheet.getDataRange().getValues();
-    var idColIdx = HEADERS.indexOf('id');
-    var idToRowNum = {};
+    // Read all existing ids once for efficient upserts.
+    // Key = ticker_id (compound) to avoid collisions across companies that share a numeric id.
+    var values      = sheet.getDataRange().getValues();
+    var idColIdx    = HEADERS.indexOf('id');
+    var tickerColIdx = HEADERS.indexOf('ticker');
+    var idToRowNum  = {};
     for (var i = 1; i < values.length; i++) {
-      idToRowNum[String(values[i][idColIdx])] = i + 1; // 1-indexed
+      var rowId = String(values[i][idColIdx]);
+      var key   = rowId === '_position'
+        ? '_position'
+        : String(values[i][tickerColIdx] || '') + '_' + rowId;
+      idToRowNum[key] = i + 1; // 1-indexed
     }
 
     for (var r = 0; r < rows.length; r++) {
@@ -99,12 +107,15 @@ function doPost(e) {
       var newRow = HEADERS.map(function(h) {
         return item[h] !== undefined ? item[h] : '';
       });
-      var existing = idToRowNum[String(item.id)];
+      var itemKey  = String(item.id) === '_position'
+        ? '_position'
+        : String(item.ticker || '') + '_' + String(item.id);
+      var existing = idToRowNum[itemKey];
       if (existing) {
         sheet.getRange(existing, 1, 1, newRow.length).setValues([newRow]);
       } else {
         sheet.appendRow(newRow);
-        idToRowNum[String(item.id)] = sheet.getLastRow();
+        idToRowNum[itemKey] = sheet.getLastRow();
       }
     }
 
