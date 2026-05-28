@@ -890,7 +890,7 @@ function goNextUncoded() {
     const c = state.codings[rowKey(SPEECH_ACTS[i])];
     if (!c || !c.codes || c.codes.length === 0) { goTo(i); return; }
   }
-  showStatus('No uncoded items after this point.', 'info');
+  setStatus('No uncoded items after this point.', 'info');
 }
 
 function jumpTo() {
