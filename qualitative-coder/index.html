@@ -929,18 +929,15 @@ async function saveToSheets() {
 
   setStatus('Saving…', 'info');
   try {
-    // no-cors avoids preflight; we can't read the response but the write succeeds
-    // Content-Type must be text/plain for no-cors mode —
-    // application/json triggers a preflight that no-cors blocks silently.
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ ...payload, secret: SECRET }),
-    });
+    const writeData = { ...payload };
+    delete writeData.speech_act; // omit — too large for URL; already stored in sheet
+    const url = SHEETS_URL + '?secret=' + SECRET + '&action=write&data=' + encodeURIComponent(JSON.stringify([writeData]));
+    const res  = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'Write failed');
     setStatus('✓ Saved to Sheets', 'ok');
   } catch(err) {
-    setStatus('✗ Network error — check your URL in Settings.', 'err');
+    setStatus('✗ Save failed: ' + err.message, 'err');
   }
 }
 
@@ -1029,51 +1026,25 @@ async function saveAllToSheets() {
 
   const sentKeys = entries.map(([key]) => key);
 
-  try {
-    await fetch(SHEETS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify({ secret: SECRET, rows }),
-    });
-  } catch(e) {
-    setStatus('✗ Network error — check your URL in Settings.', 'err');
-    btn.disabled = false;
-    return;
-  }
+  // Strip speech_act from each row — it's already in the sheet and too large for a URL.
+  const writeRows = rows.map(r => {
+    const { speech_act, ...rest } = r;
+    return rest;
+  });
 
-  // no-cors means we can't read the POST response, so verify by reading back.
-  setStatus('Verifying…', 'info');
-  await new Promise(r => setTimeout(r, 1500));
   try {
-    const res  = await fetch(SHEETS_URL + '?secret=' + SECRET, { cache: 'no-store' });
+    const url  = SHEETS_URL + '?secret=' + SECRET + '&action=write&data=' + encodeURIComponent(JSON.stringify(writeRows));
+    const res  = await fetch(url, { cache: 'no-store' });
     const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message || 'Sync failed');
+    if (json.status !== 'ok') throw new Error(json.message || 'Write failed');
 
-    const sheetKeys = new Set(json.codings.map(c => c.ticker + '_' + c.id));
-    const failed = sentKeys.filter(k => !sheetKeys.has(k));
-
-    if (failed.length > 0) {
-      // Re-queue anything that didn't land
-      state.dirtyIds = failed;
-      saveState();
-      setStatus(`⚠ ${failed.length} of ${sentKeys.length} codings did not reach the sheet — try Save All again.`, 'err');
-    } else {
-      state.dirtyIds = [];
-      // Absorb the fresh sheet data into local state
-      json.codings.forEach(entry => {
-        const key = entry.ticker + '_' + entry.id;
-        if (!state.codings[key]) state.codings[key] = { codes: entry.codes, notes: entry.pegah_notes };
-      });
-      if (json.position != null) state.currentIndex = Math.max(0, Math.min(json.position, SPEECH_ACTS.length - 1));
-      saveState();
-      setStatus(`✓ Saved ${sentKeys.length} codings to Sheets`, 'ok');
-    }
+    state.dirtyIds = [];
+    saveState();
+    setStatus(`✓ Saved ${sentKeys.length} codings to Sheets`, 'ok');
   } catch(e) {
-    // Can't verify — re-queue to be safe
     state.dirtyIds = sentKeys;
     saveState();
-    setStatus('⚠ Could not verify save — will retry on next Save All.', 'err');
+    setStatus('✗ Save failed: ' + e.message, 'err');
   }
 
   btn.disabled = false;

@@ -20,12 +20,67 @@ var HEADERS = [
   'speech_act', 'codes', 'pegah_notes', 'timestamp'
 ];
 
-// doGet — returns all saved codings so any device can sync on load
+// doGet — write mode (action=write) OR read mode (default)
 function doGet(e) {
   if (!e.parameter || e.parameter.secret !== SECRET) {
     return ContentService.createTextOutput(JSON.stringify({ status: 'unauthorized' }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+
+  // ── Write mode: ?secret=...&action=write&data=[...rows] ──────────────────
+  if (e.parameter.action === 'write') {
+    try {
+      var rows  = JSON.parse(e.parameter.data);
+      var sheet = SpreadsheetApp.openById(SHEET_ID).getActiveSheet();
+
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(HEADERS);
+        SpreadsheetApp.flush();
+      }
+
+      var values       = sheet.getDataRange().getValues();
+      var idColIdx     = HEADERS.indexOf('id');
+      var tickerColIdx = HEADERS.indexOf('ticker');
+      var codesColIdx  = HEADERS.indexOf('codes');
+      var notesColIdx  = HEADERS.indexOf('pegah_notes');
+      var tsColIdx     = HEADERS.indexOf('timestamp');
+
+      var idToRowNum = {};
+      for (var i = 1; i < values.length; i++) {
+        var rowId = String(values[i][idColIdx]);
+        var key   = rowId === '_position'
+          ? '_position'
+          : String(values[i][tickerColIdx] || '') + '_' + rowId;
+        idToRowNum[key] = i + 1;
+      }
+
+      for (var r = 0; r < rows.length; r++) {
+        var item    = rows[r];
+        var itemKey = String(item.id) === '_position'
+          ? '_position'
+          : String(item.ticker || '') + '_' + String(item.id);
+        var existing = idToRowNum[itemKey];
+        if (existing) {
+          // Update only coding columns so speech_act etc. are preserved
+          sheet.getRange(existing, codesColIdx + 1).setValue(item.codes      !== undefined ? item.codes      : '');
+          sheet.getRange(existing, notesColIdx + 1).setValue(item.pegah_notes !== undefined ? item.pegah_notes : '');
+          sheet.getRange(existing, tsColIdx    + 1).setValue(item.timestamp   !== undefined ? item.timestamp   : '');
+        } else {
+          var newRow = HEADERS.map(function(h) { return item[h] !== undefined ? item[h] : ''; });
+          sheet.appendRow(newRow);
+          idToRowNum[itemKey] = sheet.getLastRow();
+        }
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    } catch(err) {
+      return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ── Read mode (default) ──────────────────────────────────────────────────
   try {
     var sheet  = SpreadsheetApp.openById(SHEET_ID).getActiveSheet();
     var values = sheet.getDataRange().getValues();
