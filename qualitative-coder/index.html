@@ -1027,6 +1027,8 @@ async function saveAllToSheets() {
   // Append position row so other devices resume in the right place
   rows.push({ id: '_position', codes: state.currentIndex, pegah_notes: '', timestamp: new Date().toISOString() });
 
+  const sentKeys = entries.map(([key]) => key);
+
   try {
     await fetch(SHEETS_URL, {
       method: 'POST',
@@ -1034,11 +1036,44 @@ async function saveAllToSheets() {
       headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify({ secret: SECRET, rows }),
     });
-    state.dirtyIds = [];
-    saveState();
-    setStatus(`✓ Saved ${rows.length - 1} codings to Sheets`, 'ok');
   } catch(e) {
-    setStatus('✗ Save failed: ' + e.message, 'err');
+    setStatus('✗ Network error — check your URL in Settings.', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  // no-cors means we can't read the POST response, so verify by reading back.
+  setStatus('Verifying…', 'info');
+  await new Promise(r => setTimeout(r, 1500));
+  try {
+    const res  = await fetch(SHEETS_URL + '?secret=' + SECRET, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message || 'Sync failed');
+
+    const sheetKeys = new Set(json.codings.map(c => c.ticker + '_' + c.id));
+    const failed = sentKeys.filter(k => !sheetKeys.has(k));
+
+    if (failed.length > 0) {
+      // Re-queue anything that didn't land
+      state.dirtyIds = failed;
+      saveState();
+      setStatus(`⚠ ${failed.length} of ${sentKeys.length} codings did not reach the sheet — try Save All again.`, 'err');
+    } else {
+      state.dirtyIds = [];
+      // Absorb the fresh sheet data into local state
+      json.codings.forEach(entry => {
+        const key = entry.ticker + '_' + entry.id;
+        if (!state.codings[key]) state.codings[key] = { codes: entry.codes, notes: entry.pegah_notes };
+      });
+      if (json.position != null) state.currentIndex = Math.max(0, Math.min(json.position, SPEECH_ACTS.length - 1));
+      saveState();
+      setStatus(`✓ Saved ${sentKeys.length} codings to Sheets`, 'ok');
+    }
+  } catch(e) {
+    // Can't verify — re-queue to be safe
+    state.dirtyIds = sentKeys;
+    saveState();
+    setStatus('⚠ Could not verify save — will retry on next Save All.', 'err');
   }
 
   btn.disabled = false;
