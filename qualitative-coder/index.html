@@ -871,6 +871,7 @@ function goTo(newIndex) {
   const input = document.getElementById('tag-input');
   if (input.value.trim()) addTag(input.value);
   flushCoding();
+  autoSave(); // fire-and-forget before index changes
   state.currentIndex = newIndex;
   saveState();
   input.value = '';
@@ -898,6 +899,42 @@ function jumpTo() {
   if (isNaN(val)) return;
   goTo(Math.max(0, Math.min(SPEECH_ACTS.length - 1, val - 1)));
   document.getElementById('jump-input').value = '';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Auto-save: fires silently on every navigation for the row being left
+// ─────────────────────────────────────────────────────────────────────────────
+async function autoSave() {
+  if (!SHEETS_URL) return;
+  const row    = SPEECH_ACTS[state.currentIndex]; // captured before index changes
+  const key    = rowKey(row);
+  const coding = getCoding(key);
+
+  if (!state.dirtyIds.includes(key)) return; // already saved
+
+  const writeData = {
+    id:           row.id,
+    company_name: row.company_name,
+    ticker:       row.ticker,
+    quarter:      row.quarter,
+    section:      row.section,
+    speaker:      row.speaker,
+    role:         row.role,
+    codes:        coding.codes.join(', '),
+    pegah_notes:  coding.notes,
+    timestamp:    new Date().toISOString(),
+  };
+
+  try {
+    const url = SHEETS_URL + '?secret=' + SECRET + '&action=write&data=' + encodeURIComponent(JSON.stringify([writeData]));
+    const res  = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json.status !== 'ok') throw new Error(json.message);
+    state.dirtyIds = state.dirtyIds.filter(id => id !== key);
+    saveState();
+  } catch(e) {
+    // Keep in dirtyIds — Save All will catch it later
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1063,7 +1100,7 @@ function downloadCSV() {
   const csvRows = Object.entries(state.codings).map(([key, coding]) => {
     const row = SPEECH_ACTS.find(r => rowKey(r) === key) || {};
     return [
-      id, row.company_name||'', row.ticker||'', row.quarter||'',
+      row.id||'', row.company_name||'', row.ticker||'', row.quarter||'',
       row.section||'', row.speaker||'', row.role||'',
       coding.codes.join(', '), coding.notes, new Date().toISOString(),
     ].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
