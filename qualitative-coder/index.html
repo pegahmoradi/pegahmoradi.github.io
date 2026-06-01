@@ -1033,10 +1033,15 @@ async function saveAllToSheets() {
   });
 
   try {
-    const url  = SHEETS_URL + '?secret=' + SECRET + '&action=write&data=' + encodeURIComponent(JSON.stringify(writeRows));
-    const res  = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message || 'Write failed');
+    const CHUNK = 10;
+    for (let i = 0; i < writeRows.length; i += CHUNK) {
+      const chunk = writeRows.slice(i, i + CHUNK);
+      const url   = SHEETS_URL + '?secret=' + SECRET + '&action=write&data=' + encodeURIComponent(JSON.stringify(chunk));
+      setStatus(`Saving… (${Math.min(i + CHUNK, writeRows.length)}/${writeRows.length})`, 'info');
+      const res  = await fetch(url, { cache: 'no-store' });
+      const json = await res.json();
+      if (json.status !== 'ok') throw new Error(json.message || 'Write failed');
+    }
 
     state.dirtyIds = [];
     saveState();
